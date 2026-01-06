@@ -1,0 +1,544 @@
+{
+	"info": {
+		"_postman_id": "ott-streaming-api-collection",
+		"name": "OTT Streaming Platform API",
+		"description": "Complete collection of OTT Streaming Platform API endpoints\n\n**Organization:**\n- Media APIs: Manage video/audio content (pre-recorded HLS or external streams)\n- Stream APIs: Manage streaming sessions assigned to Contest events\n\n**Features:**\n- Media can be pre-recorded (HLS master.m3u8) or external stream URLs\n- Each media has uniqueId (integer, auto-incremented) and hashcode (xxxx-xxxx-xxxx-xxxx format)\n- Streams are assigned to Contest events\n- Stream uniqueId is integer (auto-incremented)\n- Media can be reused by multiple streams (one-to-many relationship)\n- Status transitions: scheduled→live/cancelled, live→finished/cancelled\n\n**When adding new requests:**\n1. Add Media requests in the \"Media APIs\" folder\n2. Add Stream requests in the \"Stream APIs\" folder\n3. Update src/routes/mediaRoutes.js or src/routes/streamRoutes.js if needed\n4. Update ARCHITECTURE.md if needed",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Media APIs",
+			"description": "REST APIs for managing Media entities (video/audio content)\n\n**Base URL:** {{media_base_url}}\n\n**Media Types:**\n- pre-recorded: HLS format with master.m3u8 URL\n- external: Stream URL from external source\n\n**Auto-generated Fields:**\n- uniqueId: Integer (auto-incremented, starts from 1)\n- hashcode: xxxx-xxxx-xxxx-xxxx format (hexadecimal)\n\n**When adding new Media requests:**\n1. Add your request in this folder\n2. Use appropriate HTTP method (GET, POST, PUT, DELETE)\n3. Set Content-Type: application/json\n4. Add body as JSON for POST/PUT requests",
+			"item": [
+				{
+					"name": "Create Media",
+					"item": [
+						{
+							"name": "Create Pre-recorded Media",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"type\": \"pre-recorded\",\n  \"url\": \"https://example.com/videos/master.m3u8\",\n  \"name\": \"Sample Video\",\n  \"description\": \"A sample pre-recorded video\",\n  \"duration\": 3600,\n  \"metadata\": {\n    \"resolution\": \"1080p\",\n    \"codec\": \"h264\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{media_base_url}}",
+									"host": ["{{media_base_url}}"]
+								},
+								"description": "Create a new pre-recorded media with HLS master.m3u8 URL.\n\n**Required Fields:**\n- type: \"pre-recorded\"\n- url: Must be a valid URL ending with master.m3u8\n- name: Media name\n\n**Optional Fields:**\n- description: Media description\n- duration: Duration in seconds\n- metadata: Additional metadata object\n\n**Returns:** Created media with auto-generated uniqueId (integer) and hashcode"
+							}
+						},
+						{
+							"name": "Create External Stream Media",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"type\": \"external\",\n  \"url\": \"rtmp://example.com/live/stream\",\n  \"name\": \"Live Stream\",\n  \"description\": \"External live stream URL\",\n  \"metadata\": {\n    \"source\": \"external_cdn\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{media_base_url}}",
+									"host": ["{{media_base_url}}"]
+								},
+								"description": "Create a new external stream media.\n\n**Required Fields:**\n- type: \"external\"\n- url: Valid stream URL (any format)\n- name: Media name\n\n**Optional Fields:**\n- description: Media description\n- duration: Duration in seconds\n- metadata: Additional metadata object\n\n**Returns:** Created media with auto-generated uniqueId (integer) and hashcode"
+							}
+						}
+					]
+				},
+				{
+					"name": "List Media",
+					"item": [
+						{
+							"name": "List All Media (default)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{media_base_url}}",
+									"host": ["{{media_base_url}}"]
+								},
+								"description": "Get list of all media with pagination.\n\n**Default:** limit=100, skip=0\n\n**Returns:** Paginated list of media with pagination info"
+							}
+						},
+						{
+							"name": "List Media with Pagination",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{media_base_url}}?limit=50&skip=0",
+									"host": ["{{media_base_url}}"],
+									"query": [
+										{
+											"key": "limit",
+											"value": "50"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										}
+									]
+								},
+								"description": "Get media list with custom pagination"
+							}
+						},
+						{
+							"name": "List Media by Type (pre-recorded)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{media_base_url}}?type=pre-recorded&limit=100",
+									"host": ["{{media_base_url}}"],
+									"query": [
+										{
+											"key": "type",
+											"value": "pre-recorded"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Filter media by type (pre-recorded)"
+							}
+						},
+						{
+							"name": "List Media by Type (external)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{media_base_url}}?type=external&limit=100",
+									"host": ["{{media_base_url}}"],
+									"query": [
+										{
+											"key": "type",
+											"value": "external"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Filter media by type (external)"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get Media by uniqueId",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{media_base_url}}/{{media_unique_id}}",
+							"host": ["{{media_base_url}}"],
+							"path": ["{{media_unique_id}}"]
+						},
+						"description": "Get a single media by its uniqueId (integer)"
+					}
+				},
+				{
+					"name": "Get Media by hashcode",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{media_base_url}}/hashcode/{{media_hashcode}}",
+							"host": ["{{media_base_url}}"],
+							"path": ["hashcode", "{{media_hashcode}}"]
+						},
+						"description": "Get a single media by its hashcode (format: xxxx-xxxx-xxxx-xxxx)"
+					}
+				},
+				{
+					"name": "Update Media",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Video Name\",\n  \"description\": \"Updated description\",\n  \"duration\": 7200\n}"
+						},
+						"url": {
+							"raw": "{{media_base_url}}/{{media_unique_id}}",
+							"host": ["{{media_base_url}}"],
+							"path": ["{{media_unique_id}}"]
+						},
+						"description": "Update media fields.\n\n**Note:** uniqueId and hashcode cannot be updated.\n\n**Optional Fields:**\n- type: \"pre-recorded\" or \"external\"\n- url: Media URL\n- name: Media name\n- description: Media description\n- duration: Duration in seconds\n- metadata: Additional metadata object"
+					}
+				},
+				{
+					"name": "Delete Media",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{media_base_url}}/{{media_unique_id}}",
+							"host": ["{{media_base_url}}"],
+							"path": ["{{media_unique_id}}"]
+						},
+						"description": "Delete a media.\n\n**Validation:** Will fail if media is used by any streams. Check error message for details."
+					}
+				}
+			]
+		},
+		{
+			"name": "Stream APIs",
+			"description": "REST APIs for managing Stream entities (streaming sessions)\n\n**Base URL:** {{stream_base_url}}\n\n**Stream Status:**\n- scheduled: Stream is scheduled\n- live: Stream is currently live\n- finished: Stream has finished\n- cancelled: Stream was cancelled\n\n**Status Transitions:**\n- scheduled → live or cancelled\n- live → finished or cancelled\n- finished → (no transitions)\n- cancelled → (no transitions)\n\n**Auto-generated Fields:**\n- uniqueId: Integer (auto-incremented, starts from 1)\n\n**Relationships:**\n- Stream references Media (one-to-many: one media can be used by multiple streams)\n- Stream references Contest by contestId\n- Stream responses include populated media data\n\n**When adding new Stream requests:**\n1. Add your request in this folder\n2. Use appropriate HTTP method (GET, POST, PUT, DELETE)\n3. Set Content-Type: application/json\n4. Add body as JSON for POST/PUT requests",
+			"item": [
+				{
+					"name": "Create Stream",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mediaId\": {{media_unique_id}},\n  \"contestId\": {{contest_id}},\n  \"title\": \"Contest Live Stream\",\n  \"description\": \"Live streaming of contest\",\n  \"status\": \"scheduled\",\n  \"startTime\": \"2024-01-15T10:00:00Z\",\n  \"endTime\": \"2024-01-15T14:00:00Z\",\n  \"thumbnail\": \"https://example.com/thumbnails/stream.jpg\",\n  \"metadata\": {\n    \"quality\": \"1080p\",\n    \"language\": \"en\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{stream_base_url}}",
+							"host": ["{{stream_base_url}}"]
+						},
+						"description": "Create a new stream.\n\n**Required Fields:**\n- mediaId: Media uniqueId (integer) or ObjectId (must exist)\n- contestId: Contest ID (integer, stored as-is, no validation against Contests collection)\n- title: Stream title\n\n**Optional Fields:**\n- description: Stream description\n- status: \"scheduled\" (default), \"live\", \"finished\", \"cancelled\"\n- startTime: ISO 8601 date string\n- endTime: ISO 8601 date string\n- thumbnail: Thumbnail URL\n- metadata: Additional metadata object\n\n**Returns:** Created stream with auto-generated uniqueId (integer) and populated media data"
+					}
+				},
+				{
+					"name": "List Streams",
+					"item": [
+						{
+							"name": "List All Streams (default)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{stream_base_url}}",
+									"host": ["{{stream_base_url}}"]
+								},
+								"description": "Get list of all streams with pagination.\n\n**Default:** limit=100, skip=0\n\n**Returns:** Paginated list of streams with populated media data"
+							}
+						},
+						{
+							"name": "List Streams with Pagination",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{stream_base_url}}?limit=50&skip=0",
+									"host": ["{{stream_base_url}}"],
+									"query": [
+										{
+											"key": "limit",
+											"value": "50"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										}
+									]
+								},
+								"description": "Get streams list with custom pagination"
+							}
+						},
+						{
+							"name": "List Streams by Contest",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{stream_base_url}}?contestId={{contest_id}}&limit=100",
+									"host": ["{{stream_base_url}}"],
+									"query": [
+										{
+											"key": "contestId",
+											"value": "{{contest_id}}"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Filter streams by contestId"
+							}
+						},
+						{
+							"name": "List Streams by Status",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{stream_base_url}}?status=live&limit=100",
+									"host": ["{{stream_base_url}}"],
+									"query": [
+										{
+											"key": "status",
+											"value": "live"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Filter streams by status (scheduled, live, finished, cancelled)"
+							}
+						},
+						{
+							"name": "List Streams by Media",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{stream_base_url}}?mediaId={{media_unique_id}}&limit=100",
+									"host": ["{{stream_base_url}}"],
+									"query": [
+										{
+											"key": "mediaId",
+											"value": "{{media_unique_id}}",
+											"description": "Media uniqueId (integer) or ObjectId"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Filter streams by mediaId (uniqueId as integer or ObjectId)"
+							}
+						},
+						{
+							"name": "List Streams with Combined Filters",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{stream_base_url}}?contestId={{contest_id}}&status=live&limit=50&skip=0",
+									"host": ["{{stream_base_url}}"],
+									"query": [
+										{
+											"key": "contestId",
+											"value": "{{contest_id}}"
+										},
+										{
+											"key": "status",
+											"value": "live"
+										},
+										{
+											"key": "limit",
+											"value": "50"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										}
+									]
+								},
+								"description": "Filter streams by multiple criteria (contestId, status, pagination)"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get Stream by uniqueId",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{stream_base_url}}/{{stream_unique_id}}",
+							"host": ["{{stream_base_url}}"],
+							"path": ["{{stream_unique_id}}"]
+						},
+						"description": "Get a single stream by its uniqueId (integer) with populated media data"
+					}
+				},
+				{
+					"name": "Get Streams for Contest",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{stream_base_url}}/contest/{{contest_id}}",
+							"host": ["{{stream_base_url}}"],
+							"path": ["contest", "{{contest_id}}"]
+						},
+						"description": "Get all streams for a specific contest with populated media data"
+					}
+				},
+				{
+					"name": "Update Stream",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Updated Stream Title\",\n  \"status\": \"live\",\n  \"viewerCount\": 1500,\n  \"description\": \"Updated description\"\n}"
+						},
+						"url": {
+							"raw": "{{stream_base_url}}/{{stream_unique_id}}",
+							"host": ["{{stream_base_url}}"],
+							"path": ["{{stream_unique_id}}"]
+						},
+						"description": "Update stream fields.\n\n**Note:** uniqueId cannot be updated.\n\n**Status Transitions:**\n- Valid: scheduled→live/cancelled, live→finished/cancelled\n- Invalid transitions will return 400 error\n\n**Optional Fields:**\n- mediaId: Media uniqueId (integer) or ObjectId (must exist)\n- contestId: Contest ID (integer, stored as-is, no validation)\n- title: Stream title\n- description: Stream description\n- status: Stream status (validated transitions)\n- startTime: ISO 8601 date string\n- endTime: ISO 8601 date string\n- thumbnail: Thumbnail URL\n- viewerCount: Number (non-negative)\n- metadata: Additional metadata object"
+					}
+				},
+				{
+					"name": "Delete Stream",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{stream_base_url}}/{{stream_unique_id}}",
+							"host": ["{{stream_base_url}}"],
+							"path": ["{{stream_unique_id}}"]
+						},
+						"description": "Delete a stream"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "media_base_url",
+			"value": "http://localhost:4000/api/media",
+			"type": "string"
+		},
+		{
+			"key": "stream_base_url",
+			"value": "http://localhost:4000/api/streams",
+			"type": "string"
+		},
+		{
+			"key": "media_unique_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "media_hashcode",
+			"value": "abcd-1234-efgh-5678",
+			"type": "string"
+		},
+		{
+			"key": "stream_unique_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "contest_id",
+			"value": "566",
+			"type": "string"
+		}
+	]
+}
+

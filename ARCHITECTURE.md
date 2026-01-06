@@ -58,6 +58,8 @@ This is a boilerplate backend application designed to provide a foundation for b
 - ✅ Comprehensive logging system
 - ✅ Security middleware (Helmet, CORS)
 - ✅ Development and production environment support
+- ✅ OTT Streaming Platform (Media and Stream management)
+- ✅ REST API endpoints for streaming content
 
 ### Requirements
 
@@ -166,7 +168,8 @@ Backend/
 │   │       ├── index.js          # Model exports
 │   │       └── schemas/
 │   │           ├── index.js      # Schema exports
-│   │           └── UsersSchema.js # User data schema
+│   │           ├── MediaSchema.js # Media schema for OTT streaming
+│   │           └── StreamSchema.js # Stream schema for OTT streaming
 │   ├── gql/
 │   │   ├── auth/
 │   │   │   ├── authValidations.js # Auth validation functions
@@ -183,13 +186,17 @@ Backend/
 │   │       └── shared.js         # Shared GraphQL types
 │   ├── helpers/
 │   │   ├── getListOfIPV4Address.js # Network utility
+│   │   ├── hashcodeGenerator.js   # Hashcode generation utility
 │   │   ├── logger.js             # Logging configuration
 │   │   ├── requestDevLogger.js   # Dev request logger
 │   │   └── validations.js        # Input validation functions
 │   ├── public/
 │   │   └── favicon.ico           # Site favicon
 │   ├── routes/
-│   │   └── routesManager.js      # Express routes
+│   │   ├── routesManager.js      # Express routes
+│   │   ├── codeforcesRoutes.js   # Codeforces API routes
+│   │   ├── mediaRoutes.js        # Media API routes
+│   │   └── streamRoutes.js       # Stream API routes
 │   └── server.js                 # Application entry point
 ├── tests/
 │   ├── package.test.js           # Package tests
@@ -258,51 +265,32 @@ The main entry point that:
 
 #### [src/data/models/](src/data/models/) - Data Layer
 
-**schemas/UsersSchema.js**:
-- Defines Mongoose schema for User model
-- Includes pre-save hooks for password hashing
-- Defines user fields: email, password, isAdmin, isActive, uuid, registrationDate, lastLogin
-
-**schemas/ContestsSchema.js**:
-- Defines Mongoose schema for Codeforces contests
-- Stores contest metadata and basic information
-- Indexes: contestId (unique), phase, type, startTimeSeconds, text search on name/description
-
 **schemas/ProblemsSchema.js**:
 - Defines Mongoose schema for Codeforces problems (normalized)
 - Stores problem information to avoid duplication
 - Indexes: problemId (unique), contestId+index, tags, rating, text search
 
-**schemas/StandingsSchema.js**:
-- Defines Mongoose schema for contest standings
-- Stores participant standings with embedded contest info
-- Indexes: contestId+participantKey (unique), rank, handle, points, text search
+**schemas/MediaSchema.js**:
+- Defines Mongoose schema for media content (video/audio) for OTT streaming platform
+- Stores pre-recorded HLS or external stream URLs
+- Fields: uniqueId (Integer, auto-incremented), hashcode (xxxx-xxxx-xxxx-xxxx format), type (pre-recorded/external), url, name, description, duration, metadata
+- Auto-generates uniqueId (integer, starts from 1) and hashcode on creation
+- Indexes: uniqueId (unique), hashcode (unique), type, text search on name/description
+- Hashcode format validation: `/^[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}$/i`
 
-**schemas/SubmissionsSchema.js**:
-- Defines Mongoose schema for contest submissions
-- Stores all submissions with embedded problem/author info
-- Indexes: submissionId (unique), contestId, handle, problemIndex, verdict, compound indexes
-
-**schemas/RatingChangesSchema.js**:
-- Defines Mongoose schema for rating changes
-- Stores rating updates after contests
-- Includes pre-save hook to calculate ratingChange
-- Indexes: contestId+handle (unique), rank, ratingUpdateTimeSeconds
-
-**schemas/HacksSchema.js**:
-- Defines Mongoose schema for hacks
-- Stores hack information with embedded problem info
-- Indexes: hackId (unique), contestId, hackerHandle, defenderHandle, verdict
-
-**schemas/CodeforcesUsersSchema.js**:
-- Defines Mongoose schema for Codeforces users (optional normalization)
-- Stores user handles and metadata
-- Indexes: handle (unique), rating, country, organization, text search
+**schemas/StreamSchema.js**:
+- Defines Mongoose schema for streaming sessions assigned to Contest events
+- References Media model (one-to-many: one media can be used by multiple streams)
+- Stores contestId as Number (no foreign key validation)
+- Fields: uniqueId (Integer, auto-incremented), mediaId (ObjectId ref), contestId (Number ref), title, description, status (scheduled/live/finished/cancelled), startTime, endTime, thumbnail, viewerCount, metadata
+- Auto-generates uniqueId (integer, starts from 1) on creation
+- Indexes: uniqueId (unique), mediaId, contestId, status, compound index on contestId+status, text search on title/description
+- Status transitions validated: scheduled→live/cancelled, live→finished/cancelled
 
 **index.js**:
-- Exports Mongoose models for use in resolvers
+- Exports Mongoose models for use in routes
 - Provides centralized model access
-- Models: Users, Contests, Problems, Standings, Submissions, RatingChanges, Hacks, CodeforcesUsers
+- Models: Problems, BatchedContestData, BatchedStandingsData, Media, Streams
 
 #### [src/helpers/](src/helpers/) - Utility Functions
 
@@ -314,7 +302,16 @@ The main entry point that:
 **validations.js**:
 - Email validation using regex
 - Password strength validation
+- Hashcode format validation (xxxx-xxxx-xxxx-xxxx)
+- Media URL validation (HLS master.m3u8 for pre-recorded, any URL for external)
+- Stream status transition validation
 - Input sanitization helpers
+
+**hashcodeGenerator.js**:
+- Generates hashcodes in format xxxx-xxxx-xxxx-xxxx
+- Uses crypto.randomBytes for secure random generation
+- Each segment is 4 hexadecimal characters
+- Function: `generateHashcode()` returns formatted hashcode string
 
 **requestDevLogger.js**:
 - Apollo Server plugin for development
@@ -356,6 +353,8 @@ The main entry point that:
 - Defines Express routes
 - Includes a basic health check route at `/`
 - Registers Codeforces API routes at `/api/codeforces`
+- Registers Media API routes at `/api/media`
+- Registers Streams API routes at `/api/streams`
 
 **codeforcesRoutes.js**:
 - REST API endpoints for Codeforces data operations
@@ -373,6 +372,47 @@ The main entry point that:
 - **GET `/api/codeforces/contests/:contestId/submissions`**: Retrieves submissions from MongoDB
   - Query params: `limit` (number, default: 100), `skip` (number, default: 0), `handle` (string, optional)
   - Returns: Paginated submissions data
+
+**mediaRoutes.js**:
+- REST API endpoints for Media operations
+- **POST `/api/media`**: Create new media
+  - Body: `{ type, url, name, description?, duration?, metadata? }`
+  - Returns: Created media with auto-generated uniqueId and hashcode
+  - Validates URL format based on type (HLS master.m3u8 for pre-recorded)
+- **GET `/api/media`**: List all media with pagination
+  - Query params: `limit` (number, default: 100), `skip` (number, default: 0), `type` (string, optional: 'pre-recorded' or 'external')
+  - Returns: Paginated media list
+- **GET `/api/media/:uniqueId`**: Get media by uniqueId
+  - Returns: Single media object
+- **GET `/api/media/hashcode/:hashcode`**: Get media by hashcode
+  - Returns: Single media object
+  - Validates hashcode format
+- **PUT `/api/media/:uniqueId`**: Update media
+  - Body: Fields to update (except uniqueId and hashcode)
+  - Returns: Updated media
+- **DELETE `/api/media/:uniqueId`**: Delete media
+  - Validation: Checks if media is used by any streams (prevents deletion if in use)
+  - Returns: Success message
+
+**streamRoutes.js**:
+- REST API endpoints for Stream operations
+- **POST `/api/streams`**: Create new stream
+  - Body: `{ mediaId, contestId, title, description?, status?, startTime?, endTime?, thumbnail?, metadata? }`
+  - Validates mediaId and contestId exist
+  - Returns: Created stream with auto-generated uniqueId and populated media
+- **GET `/api/streams`**: List all streams with pagination and filters
+  - Query params: `limit` (number, default: 100), `skip` (number, default: 0), `contestId` (number, optional), `status` (string, optional), `mediaId` (string, optional)
+  - Returns: Paginated stream list with populated media
+- **GET `/api/streams/:uniqueId`**: Get stream by uniqueId
+  - Returns: Stream with populated media
+- **GET `/api/streams/contest/:contestId`**: Get all streams for a contest
+  - Returns: Array of streams for the contest with populated media
+- **PUT `/api/streams/:uniqueId`**: Update stream
+  - Body: Fields to update (except uniqueId)
+  - Validates status transitions (scheduled→live/cancelled, live→finished/cancelled)
+  - Returns: Updated stream with populated media
+- **DELETE `/api/streams/:uniqueId`**: Delete stream
+  - Returns: Success message
 
 ---
 
@@ -917,6 +957,94 @@ The Codeforces data service provides methods to store all contest data in MongoD
 - Automatic data transformation from API format to MongoDB schema
 - Reference generation for normalized data (problems, participants)
 - Complete data storage with all relationships maintained
+
+### OTT Streaming Platform Integration
+
+The project includes REST API endpoints for managing OTT streaming content with Media and Stream entities.
+
+#### Media Management
+
+**Location**: [src/data/models/schemas/MediaSchema.js](src/data/models/schemas/MediaSchema.js), [src/routes/mediaRoutes.js](src/routes/mediaRoutes.js)
+
+**Media Entity**:
+- Stores video/audio content for streaming
+- Supports two types:
+  - **Pre-recorded**: HLS format with master.m3u8 URL
+  - **External**: Stream URL from external source
+- Each media has:
+  - `uniqueId`: Auto-generated integer (auto-incremented, starts from 1)
+  - `hashcode`: Auto-generated in format xxxx-xxxx-xxxx-xxxx
+  - `type`: 'pre-recorded' or 'external'
+  - `url`: HLS master.m3u8 for pre-recorded, stream URL for external
+  - `name`, `description`, `duration`, `metadata`
+
+**Media API Endpoints**:
+- `POST /api/media`: Create new media (auto-generates uniqueId as integer and hashcode)
+- `GET /api/media`: List all media with pagination and type filtering
+- `GET /api/media/:uniqueId`: Get media by uniqueId
+- `GET /api/media/hashcode/:hashcode`: Get media by hashcode
+- `PUT /api/media/:uniqueId`: Update media (uniqueId and hashcode cannot be updated)
+- `DELETE /api/media/:uniqueId`: Delete media (validates not in use by streams)
+
+**Validation**:
+- URL format validation based on type (HLS master.m3u8 for pre-recorded)
+- Hashcode format validation: `/^[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}$/i`
+- Prevents deletion if media is referenced by streams
+
+#### Stream Management
+
+**Location**: [src/data/models/schemas/StreamSchema.js](src/data/models/schemas/StreamSchema.js), [src/routes/streamRoutes.js](src/routes/streamRoutes.js)
+
+**Stream Entity**:
+- Represents a streaming session assigned to a Contest event
+- References Media (one-to-many: one media can be used by multiple streams)
+- References Contests by contestId
+- Each stream has:
+  - `uniqueId`: Auto-generated integer (auto-incremented, starts from 1)
+  - `mediaId`: Reference to Media model
+  - `contestId`: Reference to Contest (Number)
+  - `title`, `description`, `status`, `startTime`, `endTime`, `thumbnail`, `viewerCount`, `metadata`
+  - `status`: 'scheduled', 'live', 'finished', 'cancelled'
+
+**Stream API Endpoints**:
+- `POST /api/streams`: Create new stream (validates mediaId as integer or ObjectId and contestId exist)
+- `GET /api/streams`: List all streams with pagination and filters (contestId, status, mediaId)
+- `GET /api/streams/:uniqueId`: Get stream by uniqueId (with populated media)
+- `GET /api/streams/contest/:contestId`: Get all streams for a contest
+- `PUT /api/streams/:uniqueId`: Update stream (validates status transitions)
+- `DELETE /api/streams/:uniqueId`: Delete stream
+
+**Status Transitions**:
+- Valid transitions:
+  - `scheduled` → `live` or `cancelled`
+  - `live` → `finished` or `cancelled`
+  - `finished` → (no transitions allowed)
+  - `cancelled` → (no transitions allowed)
+- Invalid transitions return 400 error
+
+**Relationships**:
+- **Media ↔ Stream**: One-to-many (one media can be used by multiple streams)
+- **Contest ↔ Stream**: One-to-many (one contest can have multiple streams)
+- Streams automatically populate media data when retrieved
+
+#### Hashcode Generation
+
+**Location**: [src/helpers/hashcodeGenerator.js](src/helpers/hashcodeGenerator.js)
+
+**Function**: `generateHashcode()`
+- Generates secure random hashcodes in format xxxx-xxxx-xxxx-xxxx
+- Uses `crypto.randomBytes(16)` for 128-bit randomness
+- Each segment is 4 hexadecimal characters
+- Auto-generated when creating new Media entities
+
+#### Validation Helpers
+
+**Location**: [src/helpers/validations.js](src/helpers/validations.js)
+
+**New Validation Functions**:
+- `isValidHashcode(hashcode)`: Validates hashcode format
+- `isValidMediaUrl(url, type)`: Validates media URL based on type
+- `isValidStatusTransition(currentStatus, newStatus)`: Validates stream status transitions
 
 ---
 

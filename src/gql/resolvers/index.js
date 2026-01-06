@@ -1,11 +1,6 @@
-import merge from 'lodash.merge';
-
-import users from './users.js';
-import auth from './auth.js';
-import codeforces from './codeforces.js';
-
-export const resolvers = merge(
-	users,
-	auth,
-	codeforces
-);
+// Minimal GraphQL resolvers - all APIs are REST-based
+export const resolvers = {
+	Query: {
+		_empty: () => null
+	}
+};

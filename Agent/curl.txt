@@ -260,6 +260,191 @@ curl -X GET "http://localhost:4000/api/codeforces/contests/566/submissions?handl
   -H "Content-Type: application/json"
 
 # ============================================================================
+# OTT STREAMING PLATFORM API ENDPOINTS
+# ============================================================================
+# Base URL: http://localhost:4000/api
+# Replace localhost:4000 with your server address
+# 
+# These APIs manage Media and Stream entities for OTT streaming platform.
+# Media can be pre-recorded (HLS) or external streams.
+# Streams are assigned to Contest events.
+# ============================================================================
+
+# ============================================================================
+# MEDIA API ENDPOINTS
+# ============================================================================
+# Base URL: http://localhost:4000/api/media
+# ============================================================================
+
+# ============================================
+# 16. Create Media (Pre-recorded)
+# ============================================
+curl -X POST "http://localhost:4000/api/media" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "pre-recorded",
+    "url": "https://example.com/videos/master.m3u8",
+    "name": "Sample Video",
+    "description": "A sample pre-recorded video",
+    "duration": 3600,
+    "metadata": {
+      "resolution": "1080p",
+      "codec": "h264"
+    }
+  }'
+
+# ============================================
+# 17. Create Media (External Stream)
+# ============================================
+curl -X POST "http://localhost:4000/api/media" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "external",
+    "url": "rtmp://example.com/live/stream",
+    "name": "Live Stream",
+    "description": "External live stream URL",
+    "metadata": {
+      "source": "external_cdn"
+    }
+  }'
+
+# ============================================
+# 18. List All Media (with pagination)
+# ============================================
+# Get first 100 media (default)
+curl -X GET "http://localhost:4000/api/media" \
+  -H "Content-Type: application/json"
+
+# Get media with pagination
+curl -X GET "http://localhost:4000/api/media?limit=50&skip=0" \
+  -H "Content-Type: application/json"
+
+# Filter by type (pre-recorded)
+curl -X GET "http://localhost:4000/api/media?type=pre-recorded&limit=100" \
+  -H "Content-Type: application/json"
+
+# Filter by type (external)
+curl -X GET "http://localhost:4000/api/media?type=external&limit=100" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 19. Get Media by uniqueId
+# ============================================
+curl -X GET "http://localhost:4000/api/media/1" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 20. Get Media by hashcode
+# ============================================
+curl -X GET "http://localhost:4000/api/media/hashcode/abcd-1234-efgh-5678" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 21. Update Media
+# ============================================
+curl -X PUT "http://localhost:4000/api/media/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Video Name",
+    "description": "Updated description",
+    "duration": 7200
+  }'
+
+# ============================================
+# 22. Delete Media
+# ============================================
+# Note: Will fail if media is used by any streams
+curl -X DELETE "http://localhost:4000/api/media/1" \
+  -H "Content-Type: application/json"
+
+# ============================================================================
+# STREAM API ENDPOINTS
+# ============================================================================
+# Base URL: http://localhost:4000/api/streams
+# ============================================================================
+
+# ============================================
+# 23. Create Stream
+# ============================================
+# Note: mediaId can be Media uniqueId (integer) or ObjectId
+#       contestId must exist in Contests collection
+curl -X POST "http://localhost:4000/api/streams" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mediaId": 1,
+    "contestId": 566,
+    "title": "Contest Live Stream",
+    "description": "Live streaming of contest",
+    "status": "scheduled",
+    "startTime": "2024-01-15T10:00:00Z",
+    "endTime": "2024-01-15T14:00:00Z",
+    "thumbnail": "https://example.com/thumbnails/stream.jpg",
+    "metadata": {
+      "quality": "1080p",
+      "language": "en"
+    }
+  }'
+
+# ============================================
+# 24. List All Streams (with pagination and filters)
+# ============================================
+# Get first 100 streams (default)
+curl -X GET "http://localhost:4000/api/streams" \
+  -H "Content-Type: application/json"
+
+# Get streams with pagination
+curl -X GET "http://localhost:4000/api/streams?limit=50&skip=0" \
+  -H "Content-Type: application/json"
+
+# Filter by contestId
+curl -X GET "http://localhost:4000/api/streams?contestId=566&limit=100" \
+  -H "Content-Type: application/json"
+
+# Filter by status
+curl -X GET "http://localhost:4000/api/streams?status=live&limit=100" \
+  -H "Content-Type: application/json"
+
+# Filter by mediaId
+curl -X GET "http://localhost:4000/api/streams?mediaId=1&limit=100" \
+  -H "Content-Type: application/json"
+
+# Combined filters
+curl -X GET "http://localhost:4000/api/streams?contestId=566&status=live&limit=50&skip=0" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 25. Get Stream by uniqueId
+# ============================================
+curl -X GET "http://localhost:4000/api/streams/1" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 26. Get Streams for a Contest
+# ============================================
+curl -X GET "http://localhost:4000/api/streams/contest/566" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 27. Update Stream
+# ============================================
+# Note: Status transitions are validated
+# Valid: scheduled→live/cancelled, live→finished/cancelled
+curl -X PUT "http://localhost:4000/api/streams/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Updated Stream Title",
+    "status": "live",
+    "viewerCount": 1500,
+    "description": "Updated description"
+  }'
+
+# ============================================
+# 28. Delete Stream
+# ============================================
+curl -X DELETE "http://localhost:4000/api/streams/1" \
+  -H "Content-Type: application/json"
+
+# ============================================================================
 # GENERAL NOTES
 # ============================================================================
 # - Replace contestId: 566 with the actual contest ID you want to query
@@ -270,4 +455,15 @@ curl -X GET "http://localhost:4000/api/codeforces/contests/566/submissions?handl
 # - Rate limiting is handled automatically (2 seconds between requests)
 # - Responses are cached to reduce API calls
 # - Batched storage: 1000 records per document for optimal performance
+# 
+# OTT Streaming Platform Notes:
+# - Media uniqueId (integer) and hashcode are auto-generated on creation
+# - Media uniqueId: Auto-incremented integer starting from 1
+# - Media hashcode format: xxxx-xxxx-xxxx-xxxx (hexadecimal)
+# - Stream uniqueId (integer) is auto-generated on creation
+# - Stream uniqueId: Auto-incremented integer starting from 1
+# - Media can be reused by multiple streams (one-to-many relationship)
+# - Stream status transitions: scheduled→live/cancelled, live→finished/cancelled
+# - Media deletion is prevented if used by any streams
+# - All stream responses include populated media data
 # ============================================================================

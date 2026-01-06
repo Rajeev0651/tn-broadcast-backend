@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import codeforcesRoutes from './codeforcesRoutes.js';
+import mediaRoutes from './mediaRoutes.js';
+import streamRoutes from './streamRoutes.js';
 
 const routesManager = Router();
 
@@ -12,8 +13,13 @@ routesManager.get('/', (req, res) => {
 });
 
 /**
- * Codeforces API routes
+ * Media API routes
  */
-routesManager.use('/api/codeforces', codeforcesRoutes);
+routesManager.use('/api/media', mediaRoutes);
+
+/**
+ * Streams API routes
+ */
+routesManager.use('/api/streams', streamRoutes);
 
 export default routesManager;
