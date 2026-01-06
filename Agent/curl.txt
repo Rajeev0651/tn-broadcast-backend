@@ -1,0 +1,248 @@
+# ============================================================================
+# Codeforces Contest API - cURL Requests for Postman
+# ============================================================================
+# Base URL: http://localhost:4000/api/codeforces
+# Replace localhost:4000 with your server address
+# 
+# IMPORTANT: For Postman, use the collection file instead:
+# → Import: Agent/Codeforces_API.postman_collection.json
+# 
+# This file contains all REST API endpoints organized by:
+# - GraphQL APIs: Fetch directly from Codeforces API
+# - WRITE APIs: Fetch from Codeforces API and store in MongoDB
+# - READ APIs: Read data from MongoDB only
+#
+# When adding new API endpoints:
+# 1. Add GraphQL requests in the "GRAPHQL API ENDPOINTS" section
+# 2. Add WRITE APIs in the "WRITE APIs" section below
+# 3. Add READ APIs in the "READ APIs" section below
+# 4. Update the corresponding route in src/routes/codeforcesRoutes.js
+# 5. Update Codeforces_API.postman_collection.json (import into Postman to sync)
+# 6. Update ARCHITECTURE.md if needed
+# ============================================================================
+
+# ============================================================================
+# GRAPHQL API ENDPOINTS
+# ============================================================================
+# GraphQL Base URL: http://localhost:4000/graphql
+# These endpoints fetch directly from Codeforces API (not from DB)
+# ============================================================================
+
+# ============================================
+# 1. Get Contest List (without gym contests)
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestList(includeGym: false) { id name type phase frozen durationSeconds startTimeSeconds } }"
+  }'
+
+# ============================================
+# 2. Get Contest List (with gym contests)
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestList(includeGym: true) { id name type phase frozen durationSeconds startTimeSeconds } }"
+  }'
+
+# ============================================
+# 3. Get Contest Standings (official participants only)
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestStandings(contestId: 566, showUnofficial: false) { contest { id name type phase } problems { index name points tags } rows { rank points penalty successfulHackCount unsuccessfulHackCount party { members { handle } participantType } } } } }"
+  }'
+
+# ============================================
+# 4. Get Contest Standings (including unofficial participants)
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestStandings(contestId: 566, showUnofficial: true) { contest { id name type phase } problems { index name points tags } rows { rank points penalty successfulHackCount unsuccessfulHackCount party { members { handle } participantType } } } } }"
+  }'
+
+# ============================================
+# 5. Get All Submissions for a Contest
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestSubmissions(contestId: 566) { id contestId creationTimeSeconds problem { index name points } author { members { handle } } programmingLanguage verdict passedTestCount timeConsumedMillis memoryConsumedBytes } }"
+  }'
+
+# ============================================
+# 6. Get Submissions for a Specific User in a Contest
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestSubmissions(contestId: 566, handle: \"tourist\") { id contestId creationTimeSeconds problem { index name points } author { members { handle } } programmingLanguage verdict passedTestCount timeConsumedMillis memoryConsumedBytes } }"
+  }'
+
+# ============================================
+# 7. Get Rating Changes for a Contest
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestRatingChanges(contestId: 566) { contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating } }"
+  }'
+
+# ============================================
+# 8. Get Hacks for a Contest
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestHacks(contestId: 566) { id creationTimeSeconds hacker { members { handle } } defender { members { handle } } verdict problem { index name } } }"
+  }'
+
+# ============================================
+# 9. Get Complete Contest Data (All data in one call)
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getCompleteContestData(contestId: 566, showUnofficial: false) { contest { id name type phase } problems { index name points tags } standings { rank points penalty party { members { handle } } } submissions { id verdict problem { index } author { members { handle } } } ratingChanges { handle rank oldRating newRating } hacks { id verdict hacker { members { handle } } defender { members { handle } } } } }"
+  }'
+
+# ============================================
+# 10. Get Complete Contest Data (with unofficial participants)
+# ============================================
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getCompleteContestData(contestId: 566, showUnofficial: true) { contest { id name type phase } problems { index name points tags } standings { rank points penalty party { members { handle } } } submissions { id verdict problem { index } author { members { handle } } } ratingChanges { handle rank oldRating newRating } hacks { id verdict hacker { members { handle } } defender { members { handle } } } } }"
+  }'
+
+# ============================================================================
+# REST API ENDPOINTS - WRITE APIs
+# ============================================================================
+# These APIs fetch data from Codeforces API and store it in MongoDB.
+# They use batched storage (1000 records per document) for optimal performance.
+# 
+# When adding new WRITE APIs:
+# 1. Add your curl request in this section
+# 2. Add corresponding route handler in src/routes/codeforcesRoutes.js (WRITE APIs section)
+# 3. Add service method in src/services/codeforcesDataService.js if needed
+# 4. Update ARCHITECTURE.md if needed
+# ============================================================================
+
+# ============================================
+# 11. Store Complete Contest Data
+# Fetches from Codeforces API and stores in MongoDB
+# Standings → BatchedStandingsData collection (separate)
+# Submissions, RatingChanges, Hacks → BatchedContestData collection
+# ============================================
+# Store contest data (official participants only)
+curl -X POST "http://localhost:4000/api/codeforces/contests/2182/store?showUnofficial=false" \
+  -H "Content-Type: application/json"
+
+# Store contest data with unofficial participants
+curl -X POST "http://localhost:4000/api/codeforces/contests/2182/store?showUnofficial=true" \
+  -H "Content-Type: application/json"
+
+# Using POST body (alternative):
+curl -X POST "http://localhost:4000/api/codeforces/contests/566/store" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "showUnofficial": false
+  }'
+
+# Performance Notes:
+# - Uses bulk write operations (6-10x faster)
+# - Stores data in batches of 1000 records per document
+# - Standings stored in separate BatchedStandingsData collection
+# - Submissions, ratingChanges, hacks stored in BatchedContestData collection
+# - Automatically detects new vs existing data
+# - Returns performance metrics (fetch time, prepare time, store time)
+
+# ============================================
+# 12. Store Contest List
+# Fetches all contests from Codeforces API and stores in MongoDB
+# ============================================
+# Store contest list (without gym contests)
+curl -X POST "http://localhost:4000/api/codeforces/contests/store-list?includeGym=false" \
+  -H "Content-Type: application/json"
+
+# Store contest list (with gym contests)
+curl -X POST "http://localhost:4000/api/codeforces/contests/store-list?includeGym=true" \
+  -H "Content-Type: application/json"
+
+# Using POST body (alternative):
+curl -X POST "http://localhost:4000/api/codeforces/contests/store-list" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "includeGym": false
+  }'
+
+# ============================================================================
+# REST API ENDPOINTS - READ APIs
+# ============================================================================
+# These APIs only read data from MongoDB. They do NOT fetch from Codeforces API.
+# Use these APIs when you need to retrieve data that has already been stored.
+# 
+# When adding new READ APIs:
+# 1. Add your curl request in this section
+# 2. Add corresponding route handler in src/routes/codeforcesRoutes.js (READ APIs section)
+# 3. Use models directly or dataService query methods
+# 4. Add pagination if returning large datasets
+# 5. Update ARCHITECTURE.md if needed
+# ============================================================================
+
+# ============================================
+# 13. Get Contest Data from Database
+# Returns contest metadata, problems, and counts
+# ============================================
+curl -X GET "http://localhost:4000/api/codeforces/contests/566" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 14. Get Contest Standings from Database
+# Returns standings data with pagination support
+# Reads from BatchedStandingsData collection
+# ============================================
+# Get first 100 standings (default)
+curl -X GET "http://localhost:4000/api/codeforces/contests/566/standings" \
+  -H "Content-Type: application/json"
+
+# Get standings with pagination
+curl -X GET "http://localhost:4000/api/codeforces/contests/566/standings?limit=50&skip=0" \
+  -H "Content-Type: application/json"
+
+# Get unofficial standings only
+curl -X GET "http://localhost:4000/api/codeforces/contests/566/standings?unofficial=true&limit=100" \
+  -H "Content-Type: application/json"
+
+# ============================================
+# 15. Get Contest Submissions from Database
+# Returns submissions data with pagination and filtering
+# Reads from BatchedContestData collection
+# ============================================
+# Get first 100 submissions (default)
+curl -X GET "http://localhost:4000/api/codeforces/contests/566/submissions" \
+  -H "Content-Type: application/json"
+
+# Get submissions with pagination
+curl -X GET "http://localhost:4000/api/codeforces/contests/566/submissions?limit=50&skip=0" \
+  -H "Content-Type: application/json"
+
+# Get submissions for a specific user
+curl -X GET "http://localhost:4000/api/codeforces/contests/566/submissions?handle=tourist&limit=100" \
+  -H "Content-Type: application/json"
+
+# ============================================================================
+# GENERAL NOTES
+# ============================================================================
+# - Replace contestId: 566 with the actual contest ID you want to query
+# - Replace "tourist" with the actual handle you want to query
+# - GraphQL APIs fetch directly from Codeforces API (not from DB)
+# - REST WRITE APIs fetch from Codeforces API and store in MongoDB
+# - REST READ APIs retrieve data from MongoDB (must be stored first using WRITE APIs)
+# - Rate limiting is handled automatically (2 seconds between requests)
+# - Responses are cached to reduce API calls
+# - Batched storage: 1000 records per document for optimal performance
+# ============================================================================

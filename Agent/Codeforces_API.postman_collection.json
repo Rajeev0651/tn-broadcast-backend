@@ -1,0 +1,587 @@
+{
+	"info": {
+		"_postman_id": "codeforces-api-collection",
+		"name": "Codeforces Contest API",
+		"description": "Complete collection of Codeforces Contest API endpoints\n\n**Organization:**\n- GraphQL APIs: Fetch directly from Codeforces API\n- WRITE APIs: Fetch from Codeforces API and store in MongoDB\n- READ APIs: Read data from MongoDB only\n\n**When adding new requests:**\n1. Add GraphQL requests in the \"GraphQL APIs\" folder\n2. Add WRITE requests in the \"WRITE APIs\" folder\n3. Add READ requests in the \"READ APIs\" folder\n4. Update src/routes/codeforcesRoutes.js if needed\n5. Update ARCHITECTURE.md if needed",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "GraphQL APIs",
+			"description": "GraphQL endpoints that fetch directly from Codeforces API (not from DB)\n\n**Base URL:** {{graphql_base_url}}\n\n**When adding new GraphQL requests:**\n1. Add your request in this folder\n2. Use POST method to {{graphql_base_url}}\n3. Set Content-Type: application/json\n4. Add query in body as JSON",
+			"item": [
+				{
+					"name": "Get Contest List (without gym)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestList(includeGym: false) { id name type phase frozen durationSeconds startTimeSeconds } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get list of all Codeforces contests (excluding gym contests)"
+					}
+				},
+				{
+					"name": "Get Contest List (with gym)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestList(includeGym: true) { id name type phase frozen durationSeconds startTimeSeconds } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get list of all Codeforces contests (including gym contests)"
+					}
+				},
+				{
+					"name": "Get Contest Standings (official only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestStandings(contestId: {{contest_id}}, showUnofficial: false) { contest { id name type phase } problems { index name points tags } rows { rank points penalty successfulHackCount unsuccessfulHackCount party { members { handle } participantType } } } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get contest standings for official participants only"
+					}
+				},
+				{
+					"name": "Get Contest Standings (with unofficial)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestStandings(contestId: {{contest_id}}, showUnofficial: true) { contest { id name type phase } problems { index name points tags } rows { rank points penalty successfulHackCount unsuccessfulHackCount party { members { handle } participantType } } } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get contest standings including unofficial participants"
+					}
+				},
+				{
+					"name": "Get All Submissions for Contest",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestSubmissions(contestId: {{contest_id}}) { id contestId creationTimeSeconds problem { index name points } author { members { handle } } programmingLanguage verdict passedTestCount timeConsumedMillis memoryConsumedBytes } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get all submissions for a contest"
+					}
+				},
+				{
+					"name": "Get Submissions for User in Contest",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestSubmissions(contestId: {{contest_id}}, handle: \\\"{{user_handle}}\\\") { id contestId creationTimeSeconds problem { index name points } author { members { handle } } programmingLanguage verdict passedTestCount timeConsumedMillis memoryConsumedBytes } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get submissions for a specific user in a contest"
+					}
+				},
+				{
+					"name": "Get Rating Changes for Contest",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestRatingChanges(contestId: {{contest_id}}) { contestId contestName handle rank ratingUpdateTimeSeconds oldRating newRating } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get rating changes for a contest"
+					}
+				},
+				{
+					"name": "Get Hacks for Contest",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getContestHacks(contestId: {{contest_id}}) { id creationTimeSeconds hacker { members { handle } } defender { members { handle } } verdict problem { index name } } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get hacks for a contest"
+					}
+				},
+				{
+					"name": "Get Complete Contest Data (official only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getCompleteContestData(contestId: {{contest_id}}, showUnofficial: false) { contest { id name type phase } problems { index name points tags } standings { rank points penalty party { members { handle } } } submissions { id verdict problem { index } author { members { handle } } } ratingChanges { handle rank oldRating newRating } hacks { id verdict hacker { members { handle } } defender { members { handle } } } } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get complete contest data (all data types) for official participants only"
+					}
+				},
+				{
+					"name": "Get Complete Contest Data (with unofficial)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"query { getCompleteContestData(contestId: {{contest_id}}, showUnofficial: true) { contest { id name type phase } problems { index name points tags } standings { rank points penalty party { members { handle } } } submissions { id verdict problem { index } author { members { handle } } } ratingChanges { handle rank oldRating newRating } hacks { id verdict hacker { members { handle } } defender { members { handle } } } } }\"\n}"
+						},
+						"url": {
+							"raw": "{{graphql_base_url}}",
+							"host": ["{{graphql_base_url}}"]
+						},
+						"description": "Get complete contest data (all data types) including unofficial participants"
+					}
+				}
+			]
+		},
+		{
+			"name": "WRITE APIs",
+			"description": "REST APIs that fetch data from Codeforces API and store it in MongoDB.\n\n**Base URL:** {{rest_base_url}}\n\n**Storage:**\n- Standings → BatchedStandingsData collection (separate)\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n- Uses batched storage (1000 records per document) for optimal performance\n\n**When adding new WRITE APIs:**\n1. Add your request in this folder\n2. Add corresponding route handler in src/routes/codeforcesRoutes.js (WRITE APIs section)\n3. Add service method in src/services/codeforcesDataService.js if needed\n4. Update ARCHITECTURE.md if needed",
+			"item": [
+				{
+					"name": "Store Complete Contest Data",
+					"item": [
+						{
+							"name": "Store Contest Data (official only)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/store?showUnofficial=false",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "store"],
+									"query": [
+										{
+											"key": "showUnofficial",
+											"value": "false"
+										}
+									]
+								},
+								"description": "Fetches complete contest data from Codeforces API and stores in MongoDB.\n\n**Storage:**\n- Standings → BatchedStandingsData collection\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n\n**Performance:**\n- Uses bulk write operations (6-10x faster)\n- Automatically detects new vs existing data\n- Returns performance metrics"
+							}
+						},
+						{
+							"name": "Store Contest Data (with unofficial)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/store?showUnofficial=true",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "store"],
+									"query": [
+										{
+											"key": "showUnofficial",
+											"value": "true"
+										}
+									]
+								},
+								"description": "Fetches complete contest data including unofficial participants and stores in MongoDB"
+							}
+						},
+						{
+							"name": "Store Contest Data (POST body)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"showUnofficial\": false\n}"
+								},
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/store",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "store"]
+								},
+								"description": "Alternative way to pass showUnofficial parameter via POST body"
+							}
+						}
+					]
+				},
+				{
+					"name": "Store Contest List",
+					"item": [
+						{
+							"name": "Store Contest List (without gym)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/store-list?includeGym=false",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "store-list"],
+									"query": [
+										{
+											"key": "includeGym",
+											"value": "false"
+										}
+									]
+								},
+								"description": "Fetches all contests from Codeforces API (excluding gym) and stores in MongoDB"
+							}
+						},
+						{
+							"name": "Store Contest List (with gym)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/store-list?includeGym=true",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "store-list"],
+									"query": [
+										{
+											"key": "includeGym",
+											"value": "true"
+										}
+									]
+								},
+								"description": "Fetches all contests from Codeforces API (including gym) and stores in MongoDB"
+							}
+						},
+						{
+							"name": "Store Contest List (POST body)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"includeGym\": false\n}"
+								},
+								"url": {
+									"raw": "{{rest_base_url}}/contests/store-list",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "store-list"]
+								},
+								"description": "Alternative way to pass includeGym parameter via POST body"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "READ APIs",
+			"description": "REST APIs that only read data from MongoDB. They do NOT fetch from Codeforces API.\n\n**Base URL:** {{rest_base_url}}\n\n**Collections:**\n- Standings → BatchedStandingsData collection\n- Submissions → BatchedContestData collection\n\n**When adding new READ APIs:**\n1. Add your request in this folder\n2. Add corresponding route handler in src/routes/codeforcesRoutes.js (READ APIs section)\n3. Use models directly or dataService query methods\n4. Add pagination if returning large datasets\n5. Update ARCHITECTURE.md if needed",
+			"item": [
+				{
+					"name": "Get Contest Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{rest_base_url}}/contests/{{contest_id}}",
+							"host": ["{{rest_base_url}}"],
+							"path": ["contests", "{{contest_id}}"]
+						},
+						"description": "Get contest metadata, problems, and counts of related data from database"
+					}
+				},
+				{
+					"name": "Get Contest Standings",
+					"item": [
+						{
+							"name": "Get Standings (default - first 100)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/standings",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "standings"]
+								},
+								"description": "Get first 100 standings from database (reads from BatchedStandingsData collection)"
+							}
+						},
+						{
+							"name": "Get Standings (with pagination)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/standings?limit=50&skip=0",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "standings"],
+									"query": [
+										{
+											"key": "limit",
+											"value": "50"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										}
+									]
+								},
+								"description": "Get standings with pagination (limit and skip parameters)"
+							}
+						},
+						{
+							"name": "Get Standings (unofficial only)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/standings?unofficial=true&limit=100",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "standings"],
+									"query": [
+										{
+											"key": "unofficial",
+											"value": "true"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Get unofficial standings only"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get Contest Submissions",
+					"item": [
+						{
+							"name": "Get Submissions (default - first 100)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/submissions",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "submissions"]
+								},
+								"description": "Get first 100 submissions from database (reads from BatchedContestData collection)"
+							}
+						},
+						{
+							"name": "Get Submissions (with pagination)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/submissions?limit=50&skip=0",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "submissions"],
+									"query": [
+										{
+											"key": "limit",
+											"value": "50"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										}
+									]
+								},
+								"description": "Get submissions with pagination (limit and skip parameters)"
+							}
+						},
+						{
+							"name": "Get Submissions (by user handle)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/submissions?handle={{user_handle}}&limit=100",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "submissions"],
+									"query": [
+										{
+											"key": "handle",
+											"value": "{{user_handle}}"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Get submissions for a specific user handle"
+							}
+						}
+					]
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "rest_base_url",
+			"value": "http://localhost:4000/api/codeforces",
+			"type": "string"
+		},
+		{
+			"key": "graphql_base_url",
+			"value": "http://localhost:4000/graphql",
+			"type": "string"
+		},
+		{
+			"key": "contest_id",
+			"value": "2182",
+			"type": "string"
+		},
+		{
+			"key": "user_handle",
+			"value": "tourist",
+			"type": "string"
+		}
+	]
+}
+

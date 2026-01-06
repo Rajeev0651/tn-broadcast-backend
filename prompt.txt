@@ -1,0 +1,4 @@
+These are the must rule you have to follow:
+1. Whenever creating an any API create a curl request also, if creating multiple API create multiple curl request, that I can copy and paste to postman. It should alyaws be added inside agent/curl.txt file.
+2. Always follow ARCHITECTURE.md file as master architeture. And any changes to code must follow main architecture guideline, and new changes must also update ARCHITECTURE.md file on any time of code edit.
+3. For codeforces API related infor, always refer to CODEFORCES_CONTEST_API.md file. If solution exists on CODEFORCES_CONTEST_API.md the use that, otherwise state which is missing on CODEFORCES_CONTEST_API.md and add on CODEFORCES_CONTEST_API.md then use that.
