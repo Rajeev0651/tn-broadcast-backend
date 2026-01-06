@@ -206,7 +206,7 @@ router.get('/contests/:contestId', async (req, res) => {
  * Query Parameters:
  * - limit: number (default: 100) - Number of records to return
  * - skip: number (default: 0) - Number of records to skip
- * - unofficial: boolean - Filter by unofficial participants
+ * - unofficial: boolean (default: false) - Filter by unofficial participants. false = official only, true = unofficial only
  * 
  * Returns:
  * - standings: Array of standings records
@@ -217,7 +217,8 @@ router.get('/contests/:contestId/standings', async (req, res) => {
 		const contestId = parseInt(req.params.contestId);
 		const limit = parseInt(req.query.limit) || 100;
 		const skip = parseInt(req.query.skip) || 0;
-		const isUnofficial = req.query.unofficial === 'true';
+		// Default to false (official only) if not specified
+		const isUnofficial = req.query.unofficial === 'true' ? true : false;
 
 		if (!contestId || contestId <= 0) {
 			return res.status(400).json({
@@ -227,11 +228,12 @@ router.get('/contests/:contestId/standings', async (req, res) => {
 		}
 
 		// Use BatchedStandingsData collection
+		// Default to official participants only (isUnofficial: false)
 		const result = await dataService.getBatchedStandings(contestId, {
 			limit,
 			skip,
 			sort: { rank: 1 },
-			isUnofficial: req.query.unofficial !== undefined ? isUnofficial : undefined
+			isUnofficial: isUnofficial
 		});
 
 		res.status(200).json({

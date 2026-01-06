@@ -47,8 +47,17 @@ curl -X POST http://localhost:4000/graphql \
   }'
 
 # ============================================
-# 3. Get Contest Standings (official participants only)
+# 3. Get Contest Standings (default - official participants only)
+# Note: showUnofficial defaults to false, so you can omit it
 # ============================================
+# Without showUnofficial parameter (defaults to false):
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getContestStandings(contestId: 566) { contest { id name type phase } problems { index name points tags } rows { rank points penalty successfulHackCount unsuccessfulHackCount party { members { handle } participantType } } } } }"
+  }'
+
+# Explicitly set showUnofficial: false (same as default):
 curl -X POST http://localhost:4000/graphql \
   -H "Content-Type: application/json" \
   -d '{
@@ -101,8 +110,17 @@ curl -X POST http://localhost:4000/graphql \
   }'
 
 # ============================================
-# 9. Get Complete Contest Data (All data in one call)
+# 9. Get Complete Contest Data (default - official participants only)
+# Note: showUnofficial defaults to false, so you can omit it
 # ============================================
+# Without showUnofficial parameter (defaults to false):
+curl -X POST http://localhost:4000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getCompleteContestData(contestId: 566) { contest { id name type phase } problems { index name points tags } standings { rank points penalty party { members { handle } } } submissions { id verdict problem { index } author { members { handle } } } ratingChanges { handle rank oldRating newRating } hacks { id verdict hacker { members { handle } } defender { members { handle } } } } }"
+  }'
+
+# Explicitly set showUnofficial: false (same as default):
 curl -X POST http://localhost:4000/graphql \
   -H "Content-Type: application/json" \
   -d '{
@@ -137,7 +155,12 @@ curl -X POST http://localhost:4000/graphql \
 # Standings → BatchedStandingsData collection (separate)
 # Submissions, RatingChanges, Hacks → BatchedContestData collection
 # ============================================
-# Store contest data (official participants only)
+# Store contest data (default - official participants only)
+# Note: showUnofficial defaults to false, so you can omit it
+curl -X POST "http://localhost:4000/api/codeforces/contests/2182/store" \
+  -H "Content-Type: application/json"
+
+# Explicitly set showUnofficial=false (same as default):
 curl -X POST "http://localhost:4000/api/codeforces/contests/2182/store?showUnofficial=false" \
   -H "Content-Type: application/json"
 
@@ -204,8 +227,10 @@ curl -X GET "http://localhost:4000/api/codeforces/contests/566" \
 # 14. Get Contest Standings from Database
 # Returns standings data with pagination support
 # Reads from BatchedStandingsData collection
+# Note: unofficial defaults to false (official participants only)
 # ============================================
-# Get first 100 standings (default)
+# Get first 100 standings (default - official participants only)
+# Note: unofficial parameter defaults to false, so you can omit it
 curl -X GET "http://localhost:4000/api/codeforces/contests/566/standings" \
   -H "Content-Type: application/json"
 

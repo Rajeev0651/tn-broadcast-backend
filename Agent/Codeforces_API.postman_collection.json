@@ -53,7 +53,7 @@
 					}
 				},
 				{
-					"name": "Get Contest Standings (official only)",
+					"name": "Get Contest Standings (default - official only)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -64,13 +64,13 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"query\": \"query { getContestStandings(contestId: {{contest_id}}, showUnofficial: false) { contest { id name type phase } problems { index name points tags } rows { rank points penalty successfulHackCount unsuccessfulHackCount party { members { handle } participantType } } } }\"\n}"
+							"raw": "{\n  \"query\": \"query { getContestStandings(contestId: {{contest_id}}) { contest { id name type phase } problems { index name points tags } rows { rank points penalty successfulHackCount unsuccessfulHackCount party { members { handle } participantType } } } }\"\n}"
 						},
 						"url": {
 							"raw": "{{graphql_base_url}}",
 							"host": ["{{graphql_base_url}}"]
 						},
-						"description": "Get contest standings for official participants only"
+						"description": "Get contest standings for official participants only (default: showUnofficial=false). You can omit showUnofficial parameter as it defaults to false."
 					}
 				},
 				{
@@ -179,7 +179,7 @@
 					}
 				},
 				{
-					"name": "Get Complete Contest Data (official only)",
+					"name": "Get Complete Contest Data (default - official only)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -190,13 +190,13 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"query\": \"query { getCompleteContestData(contestId: {{contest_id}}, showUnofficial: false) { contest { id name type phase } problems { index name points tags } standings { rank points penalty party { members { handle } } } submissions { id verdict problem { index } author { members { handle } } } ratingChanges { handle rank oldRating newRating } hacks { id verdict hacker { members { handle } } defender { members { handle } } } } }\"\n}"
+							"raw": "{\n  \"query\": \"query { getCompleteContestData(contestId: {{contest_id}}) { contest { id name type phase } problems { index name points tags } standings { rank points penalty party { members { handle } } } submissions { id verdict problem { index } author { members { handle } } } ratingChanges { handle rank oldRating newRating } hacks { id verdict hacker { members { handle } } defender { members { handle } } } } }\"\n}"
 						},
 						"url": {
 							"raw": "{{graphql_base_url}}",
 							"host": ["{{graphql_base_url}}"]
 						},
-						"description": "Get complete contest data (all data types) for official participants only"
+						"description": "Get complete contest data (all data types) for official participants only (default: showUnofficial=false). You can omit showUnofficial parameter as it defaults to false."
 					}
 				},
 				{
@@ -230,7 +230,7 @@
 					"name": "Store Complete Contest Data",
 					"item": [
 						{
-							"name": "Store Contest Data (official only)",
+							"name": "Store Contest Data (default - official only)",
 							"request": {
 								"method": "POST",
 								"header": [
@@ -240,17 +240,11 @@
 									}
 								],
 								"url": {
-									"raw": "{{rest_base_url}}/contests/{{contest_id}}/store?showUnofficial=false",
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/store",
 									"host": ["{{rest_base_url}}"],
-									"path": ["contests", "{{contest_id}}", "store"],
-									"query": [
-										{
-											"key": "showUnofficial",
-											"value": "false"
-										}
-									]
+									"path": ["contests", "{{contest_id}}", "store"]
 								},
-								"description": "Fetches complete contest data from Codeforces API and stores in MongoDB.\n\n**Storage:**\n- Standings → BatchedStandingsData collection\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n\n**Performance:**\n- Uses bulk write operations (6-10x faster)\n- Automatically detects new vs existing data\n- Returns performance metrics"
+								"description": "Fetches complete contest data from Codeforces API and stores in MongoDB.\n\n**Default:** showUnofficial=false (official participants only)\nYou can omit the showUnofficial parameter as it defaults to false.\n\n**Storage:**\n- Standings → BatchedStandingsData collection\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n\n**Performance:**\n- Uses bulk write operations (6-10x faster)\n- Automatically detects new vs existing data\n- Returns performance metrics"
 							}
 						},
 						{
@@ -404,7 +398,7 @@
 					"name": "Get Contest Standings",
 					"item": [
 						{
-							"name": "Get Standings (default - first 100)",
+							"name": "Get Standings (default - first 100, official only)",
 							"request": {
 								"method": "GET",
 								"header": [
@@ -418,7 +412,7 @@
 									"host": ["{{rest_base_url}}"],
 									"path": ["contests", "{{contest_id}}", "standings"]
 								},
-								"description": "Get first 100 standings from database (reads from BatchedStandingsData collection)"
+								"description": "Get first 100 standings from database (reads from BatchedStandingsData collection).\n\n**Default:** unofficial=false (returns official participants only)\nYou can omit the unofficial parameter as it defaults to false."
 							}
 						},
 						{
@@ -446,7 +440,7 @@
 										}
 									]
 								},
-								"description": "Get standings with pagination (limit and skip parameters)"
+								"description": "Get standings with pagination (limit and skip parameters).\n\n**Default:** unofficial=false (returns official participants only)\nYou can omit the unofficial parameter as it defaults to false."
 							}
 						},
 						{

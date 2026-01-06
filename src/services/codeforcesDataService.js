@@ -1113,9 +1113,9 @@ class CodeforcesDataService {
 			});
 
 			// Apply filters
-			if (options.isUnofficial !== undefined) {
-				standings = standings.filter(s => s.isUnofficial === options.isUnofficial);
-			}
+			// Default to official participants only (isUnofficial: false) if not specified
+			const filterUnofficial = options.isUnofficial !== undefined ? options.isUnofficial : false;
+			standings = standings.filter(s => s.isUnofficial === filterUnofficial);
 
 			const total = standings.length;
 
