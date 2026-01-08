@@ -1,6 +1,12 @@
-// Minimal GraphQL resolvers - all APIs are REST-based
-export const resolvers = {
-	Query: {
-		_empty: () => null
+import { mergeResolvers } from '@graphql-tools/merge';
+import codeforcesResolvers from './codeforces.js';
+
+// Merge all resolvers
+export const resolvers = mergeResolvers([
+	codeforcesResolvers,
+	{
+		Query: {
+			_empty: () => null
+		}
 	}
-};
+]);

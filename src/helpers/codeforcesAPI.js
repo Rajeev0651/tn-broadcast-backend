@@ -244,7 +244,14 @@ class CodeforcesAPI {
 			}
 
 			if (result.rows && result.rows.length > 0) {
-				allRows.push(...result.rows);
+				// Always filter to only CONTESTANT participants for storage
+				// Codeforces API may return VIRTUAL and PRACTICE participants
+				// We only save CONTESTANT participants regardless of showUnofficial parameter
+				const filteredRows = result.rows.filter(row => 
+					row.party && row.party.participantType === 'CONTESTANT'
+				);
+				
+				allRows.push(...filteredRows);
 				
 				// If we got fewer rows than requested, we've reached the end
 				if (result.rows.length < count) {
@@ -256,7 +263,7 @@ class CodeforcesAPI {
 				hasMore = false;
 			}
 
-			logger.debug(`Fetched ${allRows.length} standings rows for contest ${contestId}`);
+			logger.debug(`Fetched ${allRows.length} standings rows for contest ${contestId} (CONTESTANT only)`);
 		}
 
 		const completeStandings = {
@@ -275,14 +282,15 @@ class CodeforcesAPI {
 	 * Get all submissions for a contest (handles pagination automatically)
 	 * @param {number} contestId - Contest ID
 	 * @param {string|null} handle - Optional user handle to filter submissions
+	 * @param {boolean} contestantsOnly - If true, only return submissions from CONTESTANT participants (default: true for storage)
 	 * @returns {Promise<Array>} All submissions
 	 */
-	async getContestSubmissions(contestId, handle = null) {
-		const cacheKey = this.getCacheKey('submissions', { contestId, handle });
+	async getContestSubmissions(contestId, handle = null, contestantsOnly = true) {
+		const cacheKey = this.getCacheKey('submissions', { contestId, handle, contestantsOnly });
 		const cached = this.getCached(cacheKey, CACHE_TTL.submissions);
 
 		if (cached) {
-			logger.debug(`Returning cached submissions for contest ${contestId}${handle ? ` (handle: ${handle})` : ''}`);
+			logger.debug(`Returning cached submissions for contest ${contestId}${handle ? ` (handle: ${handle})` : ''}${contestantsOnly ? ' (CONTESTANT only)' : ''}`);
 			return cached;
 		}
 
@@ -305,7 +313,15 @@ class CodeforcesAPI {
 			const result = await this.makeRequest('contest.status', params);
 
 			if (result && result.length > 0) {
-				allSubmissions.push(...result);
+				// Always filter to only CONTESTANT participants for storage
+				// Codeforces API may return submissions from VIRTUAL and PRACTICE participants
+				const filteredSubmissions = contestantsOnly 
+					? result.filter(sub => 
+						sub.author && sub.author.participantType === 'CONTESTANT'
+					)
+					: result;
+				
+				allSubmissions.push(...filteredSubmissions);
 				
 				// If we got fewer submissions than requested, we've reached the end
 				if (result.length < count) {
@@ -317,11 +333,11 @@ class CodeforcesAPI {
 				hasMore = false;
 			}
 
-			logger.debug(`Fetched ${allSubmissions.length} submissions for contest ${contestId}${handle ? ` (handle: ${handle})` : ''}`);
+			logger.debug(`Fetched ${allSubmissions.length} submissions for contest ${contestId}${handle ? ` (handle: ${handle})` : ''}${contestantsOnly ? ' (CONTESTANT only)' : ''}`);
 		}
 
 		this.setCache(cacheKey, allSubmissions);
-		logger.info(`Fetched all submissions for contest ${contestId}${handle ? ` (handle: ${handle})` : ''}: ${allSubmissions.length} total`);
+		logger.info(`Fetched all submissions for contest ${contestId}${handle ? ` (handle: ${handle})` : ''}${contestantsOnly ? ' (CONTESTANT only)' : ''}: ${allSubmissions.length} total`);
 
 		return allSubmissions;
 	}
@@ -381,15 +397,19 @@ class CodeforcesAPI {
 	/**
 	 * Get complete contest data (all data in one call)
 	 * @param {number} contestId - Contest ID
-	 * @param {boolean} showUnofficial - Include unofficial participants in standings
+	 * @param {boolean} showUnofficial - Include unofficial participants in standings (for API fetching, but always filtered to CONTESTANT for storage)
 	 * @returns {Promise<Object>} Complete contest data
 	 */
 	async getCompleteContestData(contestId, showUnofficial = false) {
-		logger.info(`Fetching complete contest data for contest ${contestId}`);
+		logger.info(`Fetching complete contest data for contest ${contestId} (CONTESTANT only - showUnofficial=${showUnofficial} for API fetch)`);
+
+		// Always filter to only CONTESTANT participants for storage
+		// showUnofficial parameter is used for API fetching but we always filter to CONTESTANT
+		const contestantsOnly = true;
 
 		const [standings, submissions, ratingChanges, hacks] = await Promise.all([
 			this.getContestStandings(contestId, showUnofficial),
-			this.getContestSubmissions(contestId),
+			this.getContestSubmissions(contestId, null, contestantsOnly),
 			this.getContestRatingChanges(contestId).catch(() => []), // Rating changes may not be available
 			this.getContestHacks(contestId).catch(() => []) // Hacks may not be available
 		]);

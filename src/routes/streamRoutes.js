@@ -48,12 +48,16 @@ router.post('/', async (req, res) => {
 			});
 		}
 
+		// Use projection to only fetch needed fields (optimized query)
+		// Uses indexes: { uniqueId: 1 }, { _id: 1 } (implicit)
 		const media = await models.Media.findOne({ 
 			$or: [
 				{ _id: mediaIdInt },
 				{ uniqueId: mediaIdInt }
 			]
-		}).lean();
+		})
+			.select('_id uniqueId hashcode type url name description duration metadata')
+			.lean();
 
 		if (!media) {
 			return res.status(404).json({
@@ -155,8 +159,11 @@ router.get('/', async (req, res) => {
 			}
 		}
 
+		// Use projection to only fetch needed fields (optimized query)
+		// Uses compound indexes: { contestId: 1, status: 1 }, { mediaId: 1 }
 		const [items, total] = await Promise.all([
 			models.Streams.find(query)
+				.select('uniqueId mediaId contestId title description status startTime endTime thumbnail viewerCount metadata createdAt updatedAt')
 				.sort({ createdAt: -1 })
 				.limit(limit)
 				.skip(skip)
@@ -165,10 +172,13 @@ router.get('/', async (req, res) => {
 		]);
 
 		// Fetch media data for each stream (since populate doesn't work with Number references)
+		// Use projection to only fetch needed fields
 		const mediaIds = [...new Set(items.map(item => item.mediaId))];
 		const mediaMap = {};
 		if (mediaIds.length > 0) {
-			const mediaList = await models.Media.find({ _id: { $in: mediaIds } }).lean();
+			const mediaList = await models.Media.find({ _id: { $in: mediaIds } })
+				.select('_id uniqueId hashcode type url name description duration metadata')
+				.lean();
 			mediaList.forEach(media => {
 				mediaMap[media._id] = media;
 			});
@@ -218,16 +228,21 @@ router.get('/contest/:contestId', async (req, res) => {
 		}
 
 		// Note: contestId is stored as-is, no validation against Contests collection
+		// Uses index: { contestId: 1 }
 
 		const streams = await models.Streams.find({ contestId })
+			.select('uniqueId mediaId contestId title description status startTime endTime thumbnail viewerCount metadata createdAt updatedAt')
 			.sort({ createdAt: -1 })
 			.lean();
 
 		// Fetch media data for each stream (since populate doesn't work with Number references)
+		// Use projection to only fetch needed fields
 		const mediaIds = [...new Set(streams.map(stream => stream.mediaId))];
 		const mediaMap = {};
 		if (mediaIds.length > 0) {
-			const mediaList = await models.Media.find({ _id: { $in: mediaIds } }).lean();
+			const mediaList = await models.Media.find({ _id: { $in: mediaIds } })
+				.select('_id uniqueId hashcode type url name description duration metadata')
+				.lean();
 			mediaList.forEach(media => {
 				mediaMap[media._id] = media;
 			});
@@ -268,7 +283,11 @@ router.get('/:uniqueId', async (req, res) => {
 			});
 		}
 
-		const stream = await models.Streams.findOne({ uniqueId }).lean();
+		// Use projection to only fetch needed fields (covered query optimization)
+		// Uses index: { uniqueId: 1 }
+		const stream = await models.Streams.findOne({ uniqueId })
+			.select('uniqueId mediaId contestId title description status startTime endTime thumbnail viewerCount metadata createdAt updatedAt')
+			.lean();
 
 		if (!stream) {
 			return res.status(404).json({
@@ -278,7 +297,10 @@ router.get('/:uniqueId', async (req, res) => {
 		}
 
 		// Fetch media data (since populate doesn't work with Number references)
-		const media = await models.Media.findOne({ _id: stream.mediaId }).lean();
+		// Use projection to only fetch needed fields
+		const media = await models.Media.findOne({ _id: stream.mediaId })
+			.select('_id uniqueId hashcode type url name description duration metadata')
+			.lean();
 
 		const streamData = {
 			...stream,
@@ -329,7 +351,9 @@ router.put('/:uniqueId', async (req, res) => {
 
 		const { mediaId, contestId, title, description, status, startTime, endTime, thumbnail, viewerCount, metadata } = req.body;
 
-		const stream = await models.Streams.findOne({ uniqueId });
+		// Use projection to only fetch needed fields for update
+		const stream = await models.Streams.findOne({ uniqueId })
+			.select('uniqueId mediaId contestId title description status startTime endTime thumbnail viewerCount metadata');
 
 		if (!stream) {
 			return res.status(404).json({
@@ -366,12 +390,14 @@ router.put('/:uniqueId', async (req, res) => {
 				});
 			}
 
+			// Use projection to only fetch needed fields
 			const media = await models.Media.findOne({ 
 				$or: [
 					{ _id: mediaIdInt },
 					{ uniqueId: mediaIdInt }
 				]
-			});
+			})
+				.select('_id uniqueId');
 
 			if (!media) {
 				return res.status(404).json({
@@ -408,7 +434,10 @@ router.put('/:uniqueId', async (req, res) => {
 		await stream.save();
 
 		// Fetch media data for response (since populate doesn't work with Number references)
-		const media = await models.Media.findOne({ _id: stream.mediaId }).lean();
+		// Use projection to only fetch needed fields
+		const media = await models.Media.findOne({ _id: stream.mediaId })
+			.select('_id uniqueId hashcode type url name description duration metadata')
+			.lean();
 		const streamData = stream.toObject();
 		streamData.media = media || null;
 
@@ -443,7 +472,9 @@ router.delete('/:uniqueId', async (req, res) => {
 			});
 		}
 
-		const stream = await models.Streams.findOne({ uniqueId });
+		// Use projection to only fetch _id for deletion
+		const stream = await models.Streams.findOne({ uniqueId })
+			.select('_id uniqueId');
 
 		if (!stream) {
 			return res.status(404).json({

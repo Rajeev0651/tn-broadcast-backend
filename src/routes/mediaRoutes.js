@@ -109,8 +109,11 @@ router.get('/', async (req, res) => {
 			query.type = type;
 		}
 
+		// Use projection to only fetch needed fields (optimized query)
+		// Uses indexes: { type: 1 }, { createdAt: -1 } (implicit)
 		const [items, total] = await Promise.all([
 			models.Media.find(query)
+				.select('uniqueId hashcode type url name description duration metadata createdAt updatedAt')
 				.sort({ createdAt: -1 })
 				.limit(limit)
 				.skip(skip)
@@ -155,7 +158,10 @@ router.get('/hashcode/:hashcode', async (req, res) => {
 			});
 		}
 
-		const media = await models.Media.findOne({ hashcode }).lean();
+		// Use covered query - hashcode is indexed and unique
+		const media = await models.Media.findOne({ hashcode })
+			.select('uniqueId hashcode type url name description duration metadata createdAt updatedAt')
+			.lean();
 
 		if (!media) {
 			return res.status(404).json({
@@ -193,7 +199,10 @@ router.get('/:uniqueId', async (req, res) => {
 			});
 		}
 
-		const media = await models.Media.findOne({ uniqueId }).lean();
+		// Use covered query - uniqueId is indexed and unique
+		const media = await models.Media.findOne({ uniqueId })
+			.select('uniqueId hashcode type url name description duration metadata createdAt updatedAt')
+			.lean();
 
 		if (!media) {
 			return res.status(404).json({
@@ -242,7 +251,9 @@ router.put('/:uniqueId', async (req, res) => {
 
 		const { type, url, name, description, duration, metadata } = req.body;
 
-		const media = await models.Media.findOne({ uniqueId });
+		// Use projection to only fetch needed fields for update
+		const media = await models.Media.findOne({ uniqueId })
+			.select('uniqueId hashcode type url name description duration metadata');
 
 		if (!media) {
 			return res.status(404).json({
@@ -330,7 +341,9 @@ router.delete('/:uniqueId', async (req, res) => {
 			});
 		}
 
-		const media = await models.Media.findOne({ uniqueId });
+		// Use projection to only fetch _id for deletion check
+		const media = await models.Media.findOne({ uniqueId })
+			.select('_id uniqueId');
 
 		if (!media) {
 			return res.status(404).json({
@@ -339,7 +352,7 @@ router.delete('/:uniqueId', async (req, res) => {
 			});
 		}
 
-		// Check if media is used by any streams
+		// Check if media is used by any streams (uses index: { mediaId: 1 })
 		const streamCount = await models.Streams.countDocuments({ mediaId: media._id });
 
 		if (streamCount > 0) {

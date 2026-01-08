@@ -58,7 +58,11 @@ export const authValidations = {
 		}
 	
 		const userUUID = context.user.uuid || null;
-		const user = await models.Users.findOne({ uuid: userUUID }).lean();
+		// Use projection to only fetch needed fields (optimized query)
+		// Uses index: { uuid: 1 } (unique index)
+		const user = await models.Users.findOne({ uuid: userUUID })
+			.select('email isAdmin isActive uuid registrationDate lastLogin')
+			.lean();
 		if (!user) {
 			throw new AuthenticationError('You must be logged in to perform this action');
 		}

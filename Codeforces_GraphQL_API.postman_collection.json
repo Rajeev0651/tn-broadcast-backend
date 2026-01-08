@@ -1,0 +1,318 @@
+{
+	"info": {
+		"_postman_id": "codeforces-graphql-api",
+		"name": "Codeforces GraphQL API",
+		"description": "GraphQL API collection for Codeforces contest data from MongoDB",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Contest Queries",
+			"item": [
+				{
+					"name": "Get Contest List",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetContestList($includeGym: Boolean) {\n  contestList(includeGym: $includeGym) {\n    id\n    name\n    type\n    phase\n    frozen\n    durationSeconds\n    startTimeSeconds\n    relativeTimeSeconds\n  }\n}",
+								"variables": "{\n  \"includeGym\": false\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get list of all Codeforces contests stored in MongoDB"
+					}
+				},
+				{
+					"name": "Get Contest by ID",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetContest($contestId: Int!) {\n  contest(id: $contestId) {\n    id\n    name\n    type\n    phase\n    frozen\n    durationSeconds\n    startTimeSeconds\n    relativeTimeSeconds\n    preparedBy\n    websiteUrl\n    description\n    difficulty\n    kind\n    icpcRegion\n    country\n    city\n    season\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get contest information by ID from MongoDB"
+					}
+				},
+				{
+					"name": "Get Contest Problems",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetContestProblems($contestId: Int!) {\n  contestProblems(contestId: $contestId) {\n    contestId\n    index\n    name\n    type\n    points\n    rating\n    tags\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get problem statistics for a contest"
+					}
+				}
+			]
+		},
+		{
+			"name": "Standings Queries",
+			"item": [
+				{
+					"name": "Get Contest Standings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetStandings($contestId: Int!, $from: Int, $count: Int, $showUnofficial: Boolean) {\n  contestStandings(contestId: $contestId, from: $from, count: $count, showUnofficial: $showUnofficial) {\n    contest {\n      id\n      name\n      type\n      phase\n      frozen\n      durationSeconds\n      startTimeSeconds\n      relativeTimeSeconds\n    }\n    problems {\n      contestId\n      index\n      name\n      type\n      points\n      rating\n      tags\n    }\n    rows {\n      rank\n      points\n      penalty\n      successfulHackCount\n      unsuccessfulHackCount\n      party {\n        contestId\n        members {\n          handle\n          name\n        }\n        participantType\n        ghost\n        room\n        startTimeSeconds\n      }\n      problemResults {\n        points\n        rejectedAttemptCount\n        type\n        bestSubmissionTimeSeconds\n      }\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234,\n  \"from\": 1,\n  \"count\": 100,\n  \"showUnofficial\": false\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get contest standings with pagination support"
+					}
+				},
+				{
+					"name": "Get Top 10 Standings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetTopStandings($contestId: Int!) {\n  contestStandings(contestId: $contestId, from: 1, count: 10) {\n    contest {\n      name\n    }\n    rows {\n      rank\n      points\n      penalty\n      party {\n        members {\n          handle\n        }\n      }\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get top 10 standings for a contest"
+					}
+				}
+			]
+		},
+		{
+			"name": "Submissions Queries",
+			"item": [
+				{
+					"name": "Get Contest Submissions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetSubmissions($contestId: Int!, $count: Int, $handle: String) {\n  contestSubmissions(contestId: $contestId, count: $count, handle: $handle) {\n    submissions {\n      id\n      contestId\n      creationTimeSeconds\n      relativeTimeSeconds\n      problem {\n        contestId\n        index\n        name\n        type\n        points\n        rating\n        tags\n      }\n      author {\n        contestId\n        members {\n          handle\n          name\n        }\n        participantType\n        ghost\n        room\n        startTimeSeconds\n      }\n      programmingLanguage\n      verdict\n      testset\n      passedTestCount\n      timeConsumedMillis\n      memoryConsumedBytes\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234,\n  \"count\": 50\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get contest submissions with optional count limit and handle filter"
+					}
+				},
+				{
+					"name": "Get User Submissions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetUserSubmissions($contestId: Int!, $handle: String!) {\n  contestSubmissions(contestId: $contestId, handle: $handle) {\n    submissions {\n      id\n      creationTimeSeconds\n      relativeTimeSeconds\n      problem {\n        index\n        name\n        points\n      }\n      author {\n        members {\n          handle\n        }\n      }\n      programmingLanguage\n      verdict\n      timeConsumedMillis\n      memoryConsumedBytes\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234,\n  \"handle\": \"tourist\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get all submissions for a specific user in a contest"
+					}
+				}
+			]
+		},
+		{
+			"name": "Simulation Queries",
+			"item": [
+				{
+					"name": "Get Simulated Standings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetSimulatedStandings($contestId: Int!, $timestamp: Int!, $from: Int, $count: Int) {\n  contestStandingsSimulated(contestId: $contestId, timestamp: $timestamp, from: $from, count: $count) {\n    contest {\n      id\n      name\n      durationSeconds\n      startTimeSeconds\n    }\n    problems {\n      index\n      name\n      points\n    }\n    rows {\n      rank\n      points\n      penalty\n      party {\n        members {\n          handle\n        }\n      }\n      problemResults {\n        points\n        rejectedAttemptCount\n        bestSubmissionTimeSeconds\n      }\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234,\n  \"timestamp\": 3600,\n  \"from\": 1,\n  \"count\": 10\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get contest standings at a specific timestamp (simulated replay)"
+					}
+				},
+				{
+					"name": "Get Simulated Submissions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetSimulatedSubmissions($contestId: Int!, $timestamp: Int!, $count: Int) {\n  contestSubmissionsSimulated(contestId: $contestId, timestamp: $timestamp, count: $count) {\n    submissions {\n      id\n      creationTimeSeconds\n      relativeTimeSeconds\n      problem {\n        index\n        name\n      }\n      author {\n        members {\n          handle\n        }\n      }\n      programmingLanguage\n      verdict\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234,\n  \"timestamp\": 3600,\n  \"count\": 50\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get contest submissions up to a specific timestamp (simulated replay)"
+					}
+				},
+				{
+					"name": "Get Simulation State",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetSimulationState($contestId: Int!, $currentTimestamp: Int!, $speedMultiplier: Float) {\n  simulationState(contestId: $contestId, currentTimestamp: $currentTimestamp, speedMultiplier: $speedMultiplier) {\n    contestId\n    startTime\n    currentTime\n    speedMultiplier\n    isRunning\n    progress\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234,\n  \"currentTimestamp\": 3600,\n  \"speedMultiplier\": 1.0\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get simulation state information including progress"
+					}
+				}
+			]
+		},
+		{
+			"name": "Complete Contest Data",
+			"item": [
+				{
+					"name": "Get Complete Contest Data",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query GetCompleteContestData($contestId: Int!) {\n  contest: contest(id: $contestId) {\n    id\n    name\n    type\n    phase\n    frozen\n    durationSeconds\n    startTimeSeconds\n    relativeTimeSeconds\n  }\n  problems: contestProblems(contestId: $contestId) {\n    contestId\n    index\n    name\n    type\n    points\n    rating\n    tags\n  }\n  standings: contestStandings(contestId: $contestId, from: 1, count: 100) {\n    rows {\n      rank\n      points\n      penalty\n      party {\n        members {\n          handle\n        }\n      }\n    }\n  }\n  submissions: contestSubmissions(contestId: $contestId, count: 50) {\n    submissions {\n      id\n      creationTimeSeconds\n      problem {\n        index\n        name\n      }\n      author {\n        members {\n          handle\n        }\n      }\n      verdict\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 1234\n}"
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/graphql",
+							"host": ["{{baseUrl}}"],
+							"path": ["graphql"]
+						},
+						"description": "Get all contest data in a single query (contest info, problems, standings, submissions)"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:4000",
+			"type": "string"
+		}
+	]
+}
+
