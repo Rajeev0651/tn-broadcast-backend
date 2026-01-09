@@ -153,3 +153,11 @@ GitHub.sublime-settings
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history
+
+### File Storage (Incremental Standings) ###
+# File-based storage for incremental standings data
+src/data/fileStorage/
+*.json
+!package.json
+!package-lock.json
+!*.schema.json

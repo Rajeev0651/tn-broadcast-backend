@@ -224,7 +224,7 @@
 		},
 		{
 			"name": "WRITE APIs",
-			"description": "REST APIs that fetch data from Codeforces API and store it in MongoDB.\n\n**Base URL:** {{rest_base_url}}\n\n**Storage:**\n- Standings → BatchedStandingsData collection (separate)\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n- Uses batched storage (1000 records per document) for optimal performance\n\n**When adding new WRITE APIs:**\n1. Add your request in this folder\n2. Add corresponding route handler in src/routes/codeforcesRoutes.js (WRITE APIs section)\n3. Add service method in src/services/codeforcesDataService.js if needed\n4. Update ARCHITECTURE.md if needed",
+			"description": "REST APIs that fetch data from Codeforces API and store it in MongoDB.\n\n**Base URL:** {{rest_base_url}}\n\n**One-Time Write Mechanism:**\n- Contests are only fetched from API once (unless `force=true`)\n- Already fetched contests return saved data immediately\n- Fetched status tracked in `FetchedContests` collection\n- Contest metadata stored in `Contests` collection\n\n**Storage:**\n- Contest metadata → Contests collection\n- Standings → BatchedStandingsData collection (separate)\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n- Fetched status → FetchedContests collection (tracks what's been fetched)\n- Uses batched storage (1000 records per document) for optimal performance\n\n**Parameters:**\n- `force` (boolean): Force re-fetch even if already stored (default: false)\n- `showUnofficial` (boolean): For API fetch only, but always filters to CONTESTANT for storage\n\n**When adding new WRITE APIs:**\n1. Add your request in this folder\n2. Add corresponding route handler in src/routes/codeforcesRoutes.js (WRITE APIs section)\n3. Add service method in src/services/codeforcesDataService.js if needed\n4. Update ARCHITECTURE.md if needed",
 			"item": [
 				{
 					"name": "Store Complete Contest Data",
@@ -244,7 +244,7 @@
 									"host": ["{{rest_base_url}}"],
 									"path": ["contests", "{{contest_id}}", "store"]
 								},
-								"description": "Fetches complete contest data from Codeforces API and stores in MongoDB.\n\n**Default:** showUnofficial=false (official participants only)\nYou can omit the showUnofficial parameter as it defaults to false.\n\n**Storage:**\n- Standings → BatchedStandingsData collection\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n\n**Performance:**\n- Uses bulk write operations (6-10x faster)\n- Automatically detects new vs existing data\n- Returns performance metrics"
+								"description": "Fetches complete contest data from Codeforces API and stores in MongoDB.\n\n**One-Time Write:** If contest was already fetched, returns saved data immediately without fetching again. Use `force=true` to re-fetch.\n\n**Default:** showUnofficial=false (official participants only)\nYou can omit the showUnofficial parameter as it defaults to false.\n\n**Storage:**\n- Contest metadata → Contests collection\n- Standings → BatchedStandingsData collection\n- Submissions, RatingChanges, Hacks → BatchedContestData collection\n- Fetched status → FetchedContests collection (tracks which contests are already stored)\n\n**Performance:**\n- Uses bulk write operations (6-10x faster)\n- Automatically detects new vs existing data\n- Returns performance metrics\n- Already fetched contests return instantly (no API call)\n\n**Response:**\n- If already fetched: Returns saved data with `alreadyFetched: true`\n- If new: Fetches from API, stores, and returns with `alreadyFetched: false`"
 							}
 						},
 						{
@@ -268,7 +268,32 @@
 										}
 									]
 								},
-								"description": "Fetches complete contest data including unofficial participants and stores in MongoDB"
+								"description": "Fetches complete contest data including unofficial participants and stores in MongoDB.\n\n**Note:** Even with showUnofficial=true, only CONTESTANT participants are stored (VIRTUAL and PRACTICE are filtered out for storage)."
+							}
+						},
+						{
+							"name": "Store Contest Data (force re-fetch)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/{{contest_id}}/store?force=true",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "{{contest_id}}", "store"],
+									"query": [
+										{
+											"key": "force",
+											"value": "true",
+											"description": "Force re-fetch even if contest was already stored"
+										}
+									]
+								},
+								"description": "Force re-fetch and overwrite contest data even if it was already stored.\n\n**Use Cases:**\n- Update contest data after it finishes\n- Refresh data if there were issues with previous fetch\n- Re-fetch with different parameters\n\n**Note:** This will overwrite existing data in the database."
 							}
 						},
 						{
@@ -283,14 +308,14 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"showUnofficial\": false\n}"
+									"raw": "{\n  \"showUnofficial\": false,\n  \"force\": false\n}"
 								},
 								"url": {
 									"raw": "{{rest_base_url}}/contests/{{contest_id}}/store",
 									"host": ["{{rest_base_url}}"],
 									"path": ["contests", "{{contest_id}}", "store"]
 								},
-								"description": "Alternative way to pass showUnofficial parameter via POST body"
+								"description": "Alternative way to pass parameters via POST body.\n\n**Parameters:**\n- `showUnofficial` (boolean): Include unofficial participants in API fetch (default: false)\n- `force` (boolean): Force re-fetch even if already stored (default: false)"
 							}
 						}
 					]
@@ -319,7 +344,7 @@
 										}
 									]
 								},
-								"description": "Fetches all contests from Codeforces API (excluding gym) and stores in MongoDB"
+								"description": "Fetches all contests from Codeforces API (excluding gym) and stores in MongoDB.\n\n**Storage:**\n- Contest list → Contests collection\n- Contest list is always updated (not one-time write)\n- Individual contest data follows one-time write rules when stored via `/contests/:contestId/store`\n\n**Response includes:**\n- `contestsCount`: Total contests in the list\n- `fetchedContestsCount`: Number of contests that have been fully fetched\n- `unfetchedContestsCount`: Number of contests not yet fetched\n\n**Use Cases:**\n- Initial setup: Store all contests\n- Periodic updates: Refresh contest list (metadata only)\n- Track progress: See which contests need full data fetch"
 							}
 						},
 						{
@@ -343,7 +368,36 @@
 										}
 									]
 								},
-								"description": "Fetches all contests from Codeforces API (including gym) and stores in MongoDB"
+								"description": "Fetches all contests from Codeforces API (including gym) and stores in MongoDB.\n\n**Storage:**\n- Contest list → Contests collection\n- Includes gym contests (ID >= 100000)\n- Contest list is always updated (not one-time write)\n\n**Response includes:**\n- `contestsCount`: Total contests in the list (including gym)\n- `fetchedContestsCount`: Number of contests that have been fully fetched\n- `unfetchedContestsCount`: Number of contests not yet fetched"
+							}
+						},
+						{
+							"name": "Store Contest List (force refresh)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{rest_base_url}}/contests/store-list?includeGym=false&force=true",
+									"host": ["{{rest_base_url}}"],
+									"path": ["contests", "store-list"],
+									"query": [
+										{
+											"key": "includeGym",
+											"value": "false"
+										},
+										{
+											"key": "force",
+											"value": "true",
+											"description": "Force refresh contest list"
+										}
+									]
+								},
+								"description": "Force refresh contest list from Codeforces API.\n\n**Note:** Contest list is always updated, but `force=true` can be used to explicitly refresh metadata.\n\n**Use Cases:**\n- Update contest phases (BEFORE → CODING → FINISHED)\n- Refresh contest names or descriptions\n- Sync with latest Codeforces data"
 							}
 						},
 						{
@@ -358,14 +412,14 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"includeGym\": false\n}"
+									"raw": "{\n  \"includeGym\": false,\n  \"force\": false\n}"
 								},
 								"url": {
 									"raw": "{{rest_base_url}}/contests/store-list",
 									"host": ["{{rest_base_url}}"],
 									"path": ["contests", "store-list"]
 								},
-								"description": "Alternative way to pass includeGym parameter via POST body"
+								"description": "Alternative way to pass parameters via POST body.\n\n**Parameters:**\n- `includeGym` (boolean): Include gym contests (default: false)\n- `force` (boolean): Force refresh contest list (default: false)\n\n**Response Example:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Contest list stored successfully\",\n  \"data\": {\n    \"contestsCount\": 1500,\n    \"includeGym\": false,\n    \"fetchedContestsCount\": 45,\n    \"unfetchedContestsCount\": 1455,\n    \"performance\": {\n      \"fetchTimeMs\": 1234,\n      \"storeTimeMs\": 567,\n      \"totalTimeMs\": 1801\n    }\n  }\n}\n```"
 							}
 						}
 					]

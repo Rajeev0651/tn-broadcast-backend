@@ -198,6 +198,7 @@
 		},
 		{
 			"name": "Simulation Queries",
+			"description": "**Contest Replay / Time-Travel Simulation**\n\nThese queries allow you to replay a finished contest and see what the standings/submissions looked like at any specific point in time during the contest.\n\n**How It Works:**\n- Filters submissions to only include those made before the specified timestamp\n- Recalculates standings based on filtered submissions\n- Shows standings as they would have appeared at that moment\n\n**Use Cases:**\n- **Educational**: See how a contest progressed over time\n- **Analysis**: Understand when key moments happened (first AC, ranking changes)\n- **Replay**: Step through contest timeline to see leaderboard evolution\n- **Debugging**: Check what submissions were visible at a specific time\n\n**Timestamp Format:**\n- `timestamp`: Seconds relative to contest start time (e.g., 3600 = 1 hour into contest)\n- Must be between 0 and contest duration\n- 0 = contest start, durationSeconds = contest end\n\n**Examples:**\n- `timestamp: 1800` = 30 minutes into contest\n- `timestamp: 3600` = 1 hour into contest\n- `timestamp: 7200` = 2 hours into contest (typical contest length)",
 			"item": [
 				{
 					"name": "Get Simulated Standings",
@@ -212,8 +213,8 @@
 						"body": {
 							"mode": "graphql",
 							"graphql": {
-								"query": "query GetSimulatedStandings($contestId: Int!, $timestamp: Int!, $from: Int, $count: Int) {\n  contestStandingsSimulated(contestId: $contestId, timestamp: $timestamp, from: $from, count: $count) {\n    contest {\n      id\n      name\n      durationSeconds\n      startTimeSeconds\n    }\n    problems {\n      index\n      name\n      points\n    }\n    rows {\n      rank\n      points\n      penalty\n      party {\n        members {\n          handle\n        }\n      }\n      problemResults {\n        points\n        rejectedAttemptCount\n        bestSubmissionTimeSeconds\n      }\n    }\n  }\n}",
-								"variables": "{\n  \"contestId\": 1234,\n  \"timestamp\": 3600,\n  \"from\": 1,\n  \"count\": 10\n}"
+								"query": "query GetSimulatedStandings($contestId: Int!, $timestamp: Int!, $from: Int, $count: Int, $showUnofficial: Boolean) {\n  contestStandingsSimulated(contestId: $contestId, timestamp: $timestamp, from: $from, count: $count, showUnofficial: $showUnofficial) {\n    contest {\n      id\n      name\n      durationSeconds\n      startTimeSeconds\n    }\n    problems {\n      index\n      name\n      points\n    }\n    rows {\n      rank\n      points\n      penalty\n      party {\n        members {\n          handle\n        }\n      }\n      problemResults {\n        points\n        rejectedAttemptCount\n        bestSubmissionTimeSeconds\n      }\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 2182,\n  \"timestamp\": 3600,\n  \"from\": 1,\n  \"count\": 10,\n  \"showUnofficial\": false\n}"
 							}
 						},
 						"url": {
@@ -221,7 +222,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["graphql"]
 						},
-						"description": "Get contest standings at a specific timestamp (simulated replay)"
+						"description": "Get contest standings as they appeared at a specific timestamp during the contest.\n\n**Parameters:**\n- `contestId` (required): Contest ID\n- `timestamp` (required): Seconds from contest start (e.g., 3600 = 1 hour)\n- `from` (optional): Starting rank for pagination (default: 1)\n- `count` (optional): Number of participants to return (default: all)\n- `showUnofficial` (optional): Include unofficial participants (default: false)\n\n**How It Works:**\n1. Filters all submissions to only include those made before `timestamp`\n2. Recalculates standings based on filtered submissions only\n3. Recalculates points, penalties, and ranks\n4. Returns standings as they would have looked at that moment\n\n**Example Use Cases:**\n- See top 10 after 1 hour: `timestamp: 3600, from: 1, count: 10`\n- Check standings at contest midpoint: `timestamp: durationSeconds / 2`\n- See who was leading at 30 minutes: `timestamp: 1800`\n\n**Note:** Timestamp is relative to contest start time, not absolute Unix timestamp."
 					}
 				},
 				{
@@ -237,8 +238,8 @@
 						"body": {
 							"mode": "graphql",
 							"graphql": {
-								"query": "query GetSimulatedSubmissions($contestId: Int!, $timestamp: Int!, $count: Int) {\n  contestSubmissionsSimulated(contestId: $contestId, timestamp: $timestamp, count: $count) {\n    submissions {\n      id\n      creationTimeSeconds\n      relativeTimeSeconds\n      problem {\n        index\n        name\n      }\n      author {\n        members {\n          handle\n        }\n      }\n      programmingLanguage\n      verdict\n    }\n  }\n}",
-								"variables": "{\n  \"contestId\": 1234,\n  \"timestamp\": 3600,\n  \"count\": 50\n}"
+								"query": "query GetSimulatedSubmissions($contestId: Int!, $timestamp: Int!, $count: Int, $handle: String) {\n  contestSubmissionsSimulated(contestId: $contestId, timestamp: $timestamp, count: $count, handle: $handle) {\n    submissions {\n      id\n      creationTimeSeconds\n      relativeTimeSeconds\n      problem {\n        index\n        name\n      }\n      author {\n        members {\n          handle\n        }\n      }\n      programmingLanguage\n      verdict\n    }\n  }\n}",
+								"variables": "{\n  \"contestId\": 2182,\n  \"timestamp\": 3600,\n  \"count\": 50\n}"
 							}
 						},
 						"url": {
@@ -246,7 +247,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["graphql"]
 						},
-						"description": "Get contest submissions up to a specific timestamp (simulated replay)"
+						"description": "Get all contest submissions that were made up to a specific timestamp.\n\n**Parameters:**\n- `contestId` (required): Contest ID\n- `timestamp` (required): Seconds from contest start (e.g., 3600 = 1 hour)\n- `count` (optional): Limit number of submissions returned (default: all)\n- `handle` (optional): Filter by specific user handle\n\n**How It Works:**\n1. Gets all submissions from the database\n2. Filters to only include submissions made before `timestamp`\n3. Sorts by creation time (newest first)\n4. Returns filtered and sorted submissions\n\n**Example Use Cases:**\n- See all submissions in first hour: `timestamp: 3600`\n- Check what a user submitted by 30 minutes: `timestamp: 1800, handle: \"tourist\"`\n- Get first 100 submissions of contest: `timestamp: durationSeconds, count: 100`\n- Analyze submission rate over time: Query with increasing timestamps\n\n**Note:** Submissions are filtered by `creationTimeSeconds <= (contestStartTime + timestamp)`"
 					}
 				},
 				{
@@ -263,7 +264,7 @@
 							"mode": "graphql",
 							"graphql": {
 								"query": "query GetSimulationState($contestId: Int!, $currentTimestamp: Int!, $speedMultiplier: Float) {\n  simulationState(contestId: $contestId, currentTimestamp: $currentTimestamp, speedMultiplier: $speedMultiplier) {\n    contestId\n    startTime\n    currentTime\n    speedMultiplier\n    isRunning\n    progress\n  }\n}",
-								"variables": "{\n  \"contestId\": 1234,\n  \"currentTimestamp\": 3600,\n  \"speedMultiplier\": 1.0\n}"
+								"variables": "{\n  \"contestId\": 2182,\n  \"currentTimestamp\": 3600,\n  \"speedMultiplier\": 1.0\n}"
 							}
 						},
 						"url": {
@@ -271,7 +272,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["graphql"]
 						},
-						"description": "Get simulation state information including progress"
+						"description": "Get simulation state information for replay tracking.\n\n**Parameters:**\n- `contestId` (required): Contest ID\n- `currentTimestamp` (required): Current simulation timestamp (seconds from start)\n- `speedMultiplier` (optional): Playback speed (1.0 = real-time, 2.0 = 2x speed, default: 1.0)\n\n**Returns:**\n- `contestId`: Contest ID\n- `startTime`: Absolute Unix timestamp of contest start\n- `currentTime`: Absolute Unix timestamp of current simulation time\n- `speedMultiplier`: Playback speed multiplier\n- `isRunning`: Whether simulation is still running (timestamp < contest duration)\n- `progress`: Percentage of contest completed (0-100)\n\n**Use Cases:**\n- Track simulation progress in a replay UI\n- Determine if contest is still \"running\" at given timestamp\n- Calculate progress bar percentage\n- Manage playback speed in frontend\n\n**Example:**\n- `currentTimestamp: 3600` on a 7200-second contest = 50% progress, isRunning: true\n- `currentTimestamp: 7200` on a 7200-second contest = 100% progress, isRunning: false\n\n**Note:** Timestamp is automatically clamped to contest duration if exceeded."
 					}
 				}
 			]

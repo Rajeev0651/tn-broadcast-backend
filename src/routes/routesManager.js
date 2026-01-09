@@ -2,6 +2,7 @@ import { Router } from 'express';
 import mediaRoutes from './mediaRoutes.js';
 import streamRoutes from './streamRoutes.js';
 import codeforcesRoutes from './codeforcesRoutes.js';
+import incrementalStandingsRoutes from './incrementalStandingsRoutes.js';
 
 const routesManager = Router();
 
@@ -27,5 +28,10 @@ routesManager.use('/api/streams', streamRoutes);
  * Codeforces API routes
  */
 routesManager.use('/api/codeforces', codeforcesRoutes);
+
+/**
+ * Incremental Standings API routes
+ */
+routesManager.use('/api/incremental-standings', incrementalStandingsRoutes);
 
 export default routesManager;

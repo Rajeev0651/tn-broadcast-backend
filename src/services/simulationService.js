@@ -1,13 +1,61 @@
 import { codeforcesDataService } from './codeforcesDataService.js';
+import { incrementalSimulationService } from './incrementalSimulationService.js';
 import { logger } from '../helpers/logger.js';
 
 /**
  * Simulation Service for Codeforces Contest Replay
  * Provides time-based filtering and replay functionality for finished contests
+ * 
+ * This service now uses the new incremental simulation system with snapshots
+ * when available, falling back to the legacy recomputation method for backwards compatibility
  */
 class SimulationService {
 	/**
 	 * Get standings at a specific timestamp (simulated)
+	 * Uses incremental simulation with snapshots if available, otherwise falls back to legacy method
+	 * @param {number} contestId - Contest ID
+	 * @param {number} timestamp - Unix timestamp (seconds) relative to contest start
+	 * @param {number} from - Starting rank (1-indexed)
+	 * @param {number} count - Number of participants to fetch (if null, returns all from 'from')
+	 * @param {boolean} showUnofficial - Include unofficial participants
+	 * @returns {Promise<object>} Standings data at specified timestamp
+	 */
+	async getStandingsAtTime(contestId, timestamp, from = 1, count = null, showUnofficial = false) {
+		try {
+			// Try to use new incremental simulation system first
+			try {
+				const rankTo = count !== null ? from + count - 1 : null;
+				const result = await incrementalSimulationService.getStandingsAtTime(
+					contestId,
+					timestamp,
+					from,
+					rankTo,
+					showUnofficial
+				);
+				
+				// If we got results, return them
+				if (result && result.rows && result.rows.length > 0) {
+					logger.debug(`Used incremental simulation for contest ${contestId} at timestamp ${timestamp}`);
+					return result;
+				}
+				
+				// If no results but contest exists, fall through to legacy method
+				logger.debug(`No snapshot data found for contest ${contestId}, falling back to legacy method`);
+			} catch (incError) {
+				// If incremental system fails, log and fall back to legacy method
+				logger.warn(`Incremental simulation failed for contest ${contestId} at timestamp ${timestamp}, using legacy method: ${incError.message}`);
+			}
+			
+			// Fall back to legacy recomputation method
+			return await this.getStandingsAtTimeLegacy(contestId, timestamp, from, count, showUnofficial);
+		} catch (error) {
+			logger.error(`Error simulating standings for contest ${contestId} at timestamp ${timestamp}: ${error.message}`);
+			throw error;
+		}
+	}
+	
+	/**
+	 * Legacy method: Get standings by recomputing from submissions
 	 * Filters submissions and recalculates standings up to that point in time
 	 * @param {number} contestId - Contest ID
 	 * @param {number} timestamp - Unix timestamp (seconds) relative to contest start
@@ -16,7 +64,7 @@ class SimulationService {
 	 * @param {boolean} showUnofficial - Include unofficial participants
 	 * @returns {Promise<object>} Standings data at specified timestamp
 	 */
-	async getStandingsAtTime(contestId, timestamp, from = 1, count = null, showUnofficial = false) {
+	async getStandingsAtTimeLegacy(contestId, timestamp, from = 1, count = null, showUnofficial = false) {
 		try {
 			// Get contest info to determine start time
 			const contest = await codeforcesDataService.getContestFromDB(contestId);

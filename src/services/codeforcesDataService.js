@@ -8,14 +8,40 @@ import { logger } from '../helpers/logger.js';
 class CodeforcesDataService {
 	/**
 	 * Get contest information from MongoDB
-	 * Contest info is embedded in standings data, so we extract it from the first standings batch
+	 * First tries to get from Contests collection, falls back to standings data if not found
 	 * @param {number} contestId - Contest ID
 	 * @returns {Promise<object|null>} Contest info or null if not found
 	 */
 	async getContestFromDB(contestId) {
 		try {
-			// Get first standings batch to extract contest info
-			// Use projection to only fetch needed fields (optimized query)
+			// First try to get from Contests collection
+			const contest = await models.Contests.findOne({ contestId })
+				.select('contestId name type phase frozen durationSeconds startTimeSeconds relativeTimeSeconds preparedBy websiteUrl description difficulty kind icpcRegion country city season')
+				.lean();
+
+			if (contest) {
+				return {
+					id: contest.contestId,
+					name: contest.name,
+					type: contest.type || 'CF',
+					phase: contest.phase || 'FINISHED',
+					frozen: contest.frozen || false,
+					durationSeconds: contest.durationSeconds || 0,
+					startTimeSeconds: contest.startTimeSeconds || null,
+					relativeTimeSeconds: contest.relativeTimeSeconds || null,
+					preparedBy: contest.preparedBy || null,
+					websiteUrl: contest.websiteUrl || null,
+					description: contest.description || null,
+					difficulty: contest.difficulty || null,
+					kind: contest.kind || null,
+					icpcRegion: contest.icpcRegion || null,
+					country: contest.country || null,
+					city: contest.city || null,
+					season: contest.season || null
+				};
+			}
+
+			// Fallback: Get from standings batch (for backward compatibility)
 			const firstBatch = await models.BatchedStandingsData.findOne({ contestId })
 				.sort({ batchIndex: 1 })
 				.limit(1)
@@ -31,10 +57,10 @@ class CodeforcesDataService {
 			return {
 				id: contestId,
 				name: firstStanding.contestName || `Contest ${contestId}`,
-				type: 'CF', // Default, could be extracted if stored
+				type: 'CF', // Default
 				phase: firstStanding.contestPhase || 'FINISHED',
 				frozen: false,
-				durationSeconds: 0, // Not stored in standings
+				durationSeconds: 0,
 				startTimeSeconds: firstStanding.startTimeSeconds || null,
 				relativeTimeSeconds: null,
 				preparedBy: null,
@@ -53,31 +79,6 @@ class CodeforcesDataService {
 		}
 	}
 
-	/**
-	 * Get contest list from MongoDB
-	 * @param {boolean} includeGym - Include gym contests
-	 * @returns {Promise<Array>} List of contests
-	 */
-	async getContestListFromDB(includeGym = false) {
-		try {
-			// Get unique contest IDs from standings
-			const distinctContests = await models.BatchedStandingsData.distinct('contestId');
-			
-			const contests = [];
-			for (const contestId of distinctContests) {
-				const contest = await this.getContestFromDB(contestId);
-				if (contest) {
-					contests.push(contest);
-				}
-			}
-
-			// Sort by contest ID descending (newest first)
-			return contests.sort((a, b) => b.id - a.id);
-		} catch (error) {
-			logger.error(`Error fetching contest list from DB: ${error.message}`);
-			throw error;
-		}
-	}
 
 	/**
 	 * Get problems for a contest from MongoDB
@@ -305,6 +306,94 @@ class CodeforcesDataService {
 	}
 
 	/**
+	 * Check if contest has already been fetched and stored
+	 * @param {number} contestId - Contest ID
+	 * @returns {Promise<boolean>} True if contest was already fetched
+	 */
+	async isContestFetched(contestId) {
+		try {
+			const fetched = await models.FetchedContests.findOne({ contestId }).lean();
+			return !!fetched;
+		} catch (error) {
+			logger.error(`Error checking if contest ${contestId} is fetched: ${error.message}`);
+			return false;
+		}
+	}
+
+	/**
+	 * Mark contest as fetched
+	 * @param {number} contestId - Contest ID
+	 * @param {Object} metadata - Metadata about what was stored
+	 * @returns {Promise<void>}
+	 */
+	async markContestAsFetched(contestId, metadata = {}) {
+		try {
+			const now = new Date();
+			await models.FetchedContests.findOneAndUpdate(
+				{ contestId },
+				{
+					$set: {
+						contestId,
+						fetchedAt: now,
+						hasStandings: metadata.hasStandings || false,
+						hasSubmissions: metadata.hasSubmissions || false,
+						hasRatingChanges: metadata.hasRatingChanges || false,
+						hasHacks: metadata.hasHacks || false,
+						updatedAt: now
+					},
+					$setOnInsert: {
+						createdAt: now
+					}
+				},
+				{ upsert: true }
+			);
+			logger.info(`Marked contest ${contestId} as fetched`);
+		} catch (error) {
+			logger.error(`Error marking contest ${contestId} as fetched: ${error.message}`);
+			throw error;
+		}
+	}
+
+	/**
+	 * Get already stored contest data summary
+	 * @param {number} contestId - Contest ID
+	 * @returns {Promise<Object|null>} Contest data summary or null if not found
+	 */
+	async getStoredContestSummary(contestId) {
+		try {
+			const contest = await this.getContestFromDB(contestId);
+			if (!contest) {
+				return null;
+			}
+
+			const problems = await this.getProblemsFromDB(contestId);
+
+			// Get counts from batched collections
+			const [standingsBatches, contestDataBatches] = await Promise.all([
+				models.BatchedStandingsData.find({ contestId }).select('standingsCount').lean(),
+				models.BatchedContestData.find({ contestId }).select('submissionsCount ratingChangesCount hacksCount').lean()
+			]);
+
+			const standingsCount = standingsBatches.reduce((sum, batch) => sum + (batch.standingsCount || batch.standings?.length || 0), 0);
+			const submissionsCount = contestDataBatches.reduce((sum, batch) => sum + (batch.submissionsCount || batch.submissions?.length || 0), 0);
+			const ratingChangesCount = contestDataBatches.reduce((sum, batch) => sum + (batch.ratingChangesCount || batch.ratingChanges?.length || 0), 0);
+			const hacksCount = contestDataBatches.reduce((sum, batch) => sum + (batch.hacksCount || batch.hacks?.length || 0), 0);
+
+			return {
+				contest,
+				problemsCount: problems.length,
+				standingsCount,
+				submissionsCount,
+				ratingChangesCount,
+				hacksCount
+			};
+		} catch (error) {
+			logger.error(`Error getting stored contest summary for ${contestId}: ${error.message}`);
+			return null;
+		}
+	}
+
+	/**
 	 * Store complete contest data in MongoDB using batched storage
 	 * @param {number} contestId - Contest ID
 	 * @param {Object} contestData - Complete contest data from API
@@ -314,6 +403,44 @@ class CodeforcesDataService {
 		try {
 			const BATCH_SIZE = 1000;
 			const now = new Date();
+
+			// Store contest metadata in Contests collection
+			if (contestData.contest) {
+				const contestInfo = contestData.contest;
+				const isGym = contestId >= 100000; // Gym contests typically have IDs >= 100000
+				
+				await models.Contests.findOneAndUpdate(
+					{ contestId },
+					{
+						$set: {
+							contestId,
+							name: contestInfo.name || '',
+							type: contestInfo.type || 'CF',
+							phase: contestInfo.phase || 'BEFORE',
+							frozen: contestInfo.frozen || false,
+							durationSeconds: contestInfo.durationSeconds || 0,
+							startTimeSeconds: contestInfo.startTimeSeconds || null,
+							relativeTimeSeconds: contestInfo.relativeTimeSeconds || null,
+							preparedBy: contestInfo.preparedBy || null,
+							websiteUrl: contestInfo.websiteUrl || null,
+							description: contestInfo.description || null,
+							difficulty: contestInfo.difficulty || null,
+							kind: contestInfo.kind || null,
+							icpcRegion: contestInfo.icpcRegion || null,
+							country: contestInfo.country || null,
+							city: contestInfo.city || null,
+							season: contestInfo.season || null,
+							isGym,
+							lastFetchedAt: now,
+							updatedAt: now
+						},
+						$setOnInsert: {
+							createdAt: now
+						}
+					},
+					{ upsert: true }
+				);
+			}
 
 			// 1. Store Problems
 			if (contestData.problems && contestData.problems.length > 0) {
@@ -393,6 +520,7 @@ class CodeforcesDataService {
 						contestId,
 						batchIndex,
 						standings: transformedStandings,
+						standingsCount: transformedStandings.length,
 						lastFetchedAt: now
 					});
 				}
@@ -406,6 +534,7 @@ class CodeforcesDataService {
 								contestId: batch.contestId,
 								batchIndex: batch.batchIndex,
 								standings: batch.standings,
+								standingsCount: batch.standingsCount,
 								lastFetchedAt: batch.lastFetchedAt,
 								updatedAt: now
 							},
@@ -459,8 +588,11 @@ class CodeforcesDataService {
 						contestId,
 						batchIndex,
 						submissions: transformedSubmissions,
+						submissionsCount: transformedSubmissions.length,
 						ratingChanges: [],
+						ratingChangesCount: 0,
 						hacks: [],
+						hacksCount: 0,
 						lastFetchedAt: now
 					});
 				}
@@ -491,14 +623,18 @@ class CodeforcesDataService {
 							contestId,
 							batchIndex,
 							submissions: [],
+							submissionsCount: 0,
 							ratingChanges: transformedRatingChanges,
+							ratingChangesCount: transformedRatingChanges.length,
 							hacks: [],
+							hacksCount: 0,
 							lastFetchedAt: now
 						};
 						contestDataBatches.push(batchDoc);
 						logger.debug(`Created new batch ${batchIndex} for rating changes (${transformedRatingChanges.length} items)`);
 					} else {
 						batchDoc.ratingChanges = transformedRatingChanges;
+						batchDoc.ratingChangesCount = transformedRatingChanges.length;
 						logger.debug(`Updated batch ${batchIndex} with rating changes (${transformedRatingChanges.length} items)`);
 					}
 				}
@@ -542,14 +678,18 @@ class CodeforcesDataService {
 							contestId,
 							batchIndex,
 							submissions: [],
+							submissionsCount: 0,
 							ratingChanges: [],
+							ratingChangesCount: 0,
 							hacks: transformedHacks,
+							hacksCount: transformedHacks.length,
 							lastFetchedAt: now
 						};
 						contestDataBatches.push(batchDoc);
 						logger.debug(`Created new batch ${batchIndex} for hacks (${transformedHacks.length} items)`);
 					} else {
 						batchDoc.hacks = transformedHacks;
+						batchDoc.hacksCount = transformedHacks.length;
 						logger.debug(`Updated batch ${batchIndex} with hacks (${transformedHacks.length} items)`);
 					}
 				}
@@ -582,8 +722,11 @@ class CodeforcesDataService {
 						contestId: batch.contestId,
 						batchIndex: batch.batchIndex,
 						submissions: Array.isArray(batch.submissions) ? batch.submissions : [],
+						submissionsCount: batch.submissionsCount || (Array.isArray(batch.submissions) ? batch.submissions.length : 0),
 						ratingChanges: Array.isArray(batch.ratingChanges) ? batch.ratingChanges : [],
+						ratingChangesCount: batch.ratingChangesCount || (Array.isArray(batch.ratingChanges) ? batch.ratingChanges.length : 0),
 						hacks: Array.isArray(batch.hacks) ? batch.hacks : [],
+						hacksCount: batch.hacksCount || (Array.isArray(batch.hacks) ? batch.hacks.length : 0),
 						lastFetchedAt: batch.lastFetchedAt || now,
 						updatedAt: now
 					};
@@ -634,6 +777,14 @@ class CodeforcesDataService {
 				logger.warn(`No contest data batches to store for contest ${contestId} - submissions: ${contestData.submissions?.length || 0}, ratingChanges: ${contestData.ratingChanges?.length || 0}, hacks: ${contestData.hacks?.length || 0}`);
 			}
 
+			// Mark contest as fetched with metadata about what was stored
+			await this.markContestAsFetched(contestId, {
+				hasStandings: !!(contestData.standings && contestData.standings.length > 0),
+				hasSubmissions: !!(contestData.submissions && contestData.submissions.length > 0),
+				hasRatingChanges: !!(contestData.ratingChanges && contestData.ratingChanges.length > 0),
+				hasHacks: !!(contestData.hacks && contestData.hacks.length > 0)
+			});
+
 			logger.info(`Successfully stored complete contest data for contest ${contestId}`);
 		} catch (error) {
 			logger.error(`Error storing contest data for contest ${contestId}: ${error.message}`);
@@ -643,23 +794,110 @@ class CodeforcesDataService {
 
 	/**
 	 * Store contest list in MongoDB
-	 * Note: Contests are currently stored embedded in standings, so this method
-	 * may need to be updated if a separate Contests collection is created
+	 * Stores all contests in the Contests collection
 	 * @param {Array} contests - Array of contest objects from API
 	 * @returns {Promise<void>}
 	 */
 	async storeContestList(contests) {
 		try {
-			// For now, contests are stored embedded in standings data
-			// If a separate Contests collection is needed, it should be created here
-			logger.info(`Contest list storage: ${contests.length} contests received (currently stored embedded in standings)`);
+			const now = new Date();
 			
-			// TODO: Implement separate Contests collection if needed
-			// For now, contests are stored when standings are stored
+			logger.info(`Storing contest list: ${contests.length} contests`);
+
+			// Prepare bulk operations to upsert contests
+			const contestOps = contests.map(contest => {
+				const contestId = contest.id;
+				const isGym = contestId >= 100000; // Gym contests typically have IDs >= 100000
+
+				return {
+					updateOne: {
+						filter: { contestId },
+						update: {
+							$set: {
+								contestId,
+								name: contest.name || '',
+								type: contest.type || 'CF',
+								phase: contest.phase || 'BEFORE',
+								frozen: contest.frozen || false,
+								durationSeconds: contest.durationSeconds || 0,
+								startTimeSeconds: contest.startTimeSeconds || null,
+								relativeTimeSeconds: contest.relativeTimeSeconds || null,
+								preparedBy: contest.preparedBy || null,
+								websiteUrl: contest.websiteUrl || null,
+								description: contest.description || null,
+								difficulty: contest.difficulty || null,
+								kind: contest.kind || null,
+								icpcRegion: contest.icpcRegion || null,
+								country: contest.country || null,
+								city: contest.city || null,
+								season: contest.season || null,
+								isGym,
+								lastFetchedAt: now,
+								updatedAt: now
+							},
+							$setOnInsert: {
+								createdAt: now
+							}
+						},
+						upsert: true
+					}
+				};
+			});
+
+			// Execute bulk write
+			if (contestOps.length > 0) {
+				// Process in batches to avoid memory issues with large lists
+				const BATCH_SIZE = 1000;
+				for (let i = 0; i < contestOps.length; i += BATCH_SIZE) {
+					const batch = contestOps.slice(i, i + BATCH_SIZE);
+					const result = await models.Contests.bulkWrite(batch, { ordered: false });
+					logger.info(`Stored contest batch ${Math.floor(i / BATCH_SIZE) + 1}: ${result.upsertedCount} upserted, ${result.modifiedCount} modified`);
+				}
+			}
 			
 			logger.info(`Contest list storage completed (${contests.length} contests)`);
 		} catch (error) {
 			logger.error(`Error storing contest list: ${error.message}`);
+			throw error;
+		}
+	}
+
+	/**
+	 * Get contest list from Contests collection
+	 * @param {boolean} includeGym - Include gym contests
+	 * @returns {Promise<Array>} List of contests
+	 */
+	async getContestListFromDB(includeGym = false) {
+		try {
+			const query = includeGym ? {} : { isGym: false };
+			
+			const contests = await models.Contests.find(query)
+				.select('contestId name type phase frozen durationSeconds startTimeSeconds relativeTimeSeconds preparedBy websiteUrl description difficulty kind icpcRegion country city season isGym')
+				.sort({ contestId: -1 })
+				.lean();
+
+			// Transform to match GraphQL/API format
+			return contests.map(c => ({
+				id: c.contestId,
+				name: c.name,
+				type: c.type,
+				phase: c.phase,
+				frozen: c.frozen,
+				durationSeconds: c.durationSeconds,
+				startTimeSeconds: c.startTimeSeconds,
+				relativeTimeSeconds: c.relativeTimeSeconds,
+				preparedBy: c.preparedBy,
+				websiteUrl: c.websiteUrl,
+				description: c.description,
+				difficulty: c.difficulty,
+				kind: c.kind,
+				icpcRegion: c.icpcRegion,
+				country: c.country,
+				city: c.city,
+				season: c.season
+			}));
+		} catch (error) {
+			logger.error(`Error fetching contest list from DB: ${error.message}`);
 			throw error;
 		}
 	}

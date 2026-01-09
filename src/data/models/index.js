@@ -6,7 +6,12 @@ import {
 	BatchedStandingsDataSchema,
 	IdCounterSchema,
 	MediaSchema,
-	StreamSchema
+	StreamSchema,
+	FetchedContestsSchema,
+	ContestsSchema,
+	StandingsStateSchema,
+	BaseSnapshotSchema,
+	DeltaSnapshotSchema
 } from './schemas/index.js';
 
 export const models = {
@@ -15,5 +20,10 @@ export const models = {
 	BatchedStandingsData: mongoose.model('batchedStandingsData', BatchedStandingsDataSchema),
 	IdCounter: mongoose.model('idCounter', IdCounterSchema),
 	Media: mongoose.model('media', MediaSchema),
-	Streams: mongoose.model('streams', StreamSchema)
+	Streams: mongoose.model('streams', StreamSchema),
+	FetchedContests: mongoose.model('fetchedContests', FetchedContestsSchema),
+	Contests: mongoose.model('contests', ContestsSchema),
+	StandingsState: mongoose.model('standingsState', StandingsStateSchema),
+	BaseSnapshots: mongoose.model('baseSnapshots', BaseSnapshotSchema),
+	DeltaSnapshots: mongoose.model('deltaSnapshots', DeltaSnapshotSchema)
 };

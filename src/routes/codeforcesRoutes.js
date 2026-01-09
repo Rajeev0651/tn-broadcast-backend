@@ -12,12 +12,17 @@ const router = Router();
  * 
  * Query Parameters:
  * - showUnofficial: boolean (optional, default: false) - For API fetching, but always filters to CONTESTANT for storage
+ * - force: boolean (optional, default: false) - Force re-fetch even if contest was already stored
  * 
  * Body Parameters (alternative):
  * - showUnofficial: boolean (optional) - Can be passed in POST body instead of query
+ * - force: boolean (optional) - Can be passed in POST body instead of query
  * 
  * Fetches complete contest data from Codeforces API and stores in MongoDB.
  * Only CONTESTANT participants are saved (VIRTUAL and PRACTICE are filtered out).
+ * 
+ * One-time write: If contest was already fetched, returns already saved data without fetching again.
+ * Use force=true to re-fetch and overwrite existing data.
  */
 router.post('/contests/:contestId/store', async (req, res) => {
 	try {
@@ -30,10 +35,46 @@ router.post('/contests/:contestId/store', async (req, res) => {
 			});
 		}
 
-		// Get showUnofficial from query or body (default: false)
+		// Get parameters from query or body
 		const showUnofficial = req.query.showUnofficial === 'true' || req.body.showUnofficial === true;
+		const force = req.query.force === 'true' || req.body.force === true;
 
-		logger.info(`API: Storing contest data for contest ${contestId} (showUnofficial=${showUnofficial} for API fetch, but filtering to CONTESTANT only)`);
+		// Check if contest was already fetched (unless force=true)
+		if (!force) {
+			const isFetched = await codeforcesDataService.isContestFetched(contestId);
+			
+			if (isFetched) {
+				logger.info(`API: Contest ${contestId} was already fetched, returning saved data`);
+
+				// Get already saved data
+				const savedData = await codeforcesDataService.getStoredContestSummary(contestId);
+				
+				if (savedData) {
+					return res.status(200).json({
+						success: true,
+						message: `Contest ${contestId} data already exists (was fetched previously)`,
+						data: {
+							contestId,
+							contest: savedData.contest,
+							problemsCount: savedData.problemsCount,
+							standingsCount: savedData.standingsCount,
+							submissionsCount: savedData.submissionsCount,
+							ratingChangesCount: savedData.ratingChangesCount,
+							hacksCount: savedData.hacksCount,
+							performance: {
+								fetchTimeMs: 0,
+								storeTimeMs: 0,
+								totalTimeMs: 0
+							},
+							note: 'Data was already stored. Use force=true to re-fetch.',
+							alreadyFetched: true
+						}
+					});
+				}
+			}
+		}
+
+		logger.info(`API: Storing contest data for contest ${contestId} (showUnofficial=${showUnofficial} for API fetch, but filtering to CONTESTANT only, force=${force})`);
 
 		const startTime = Date.now();
 
@@ -68,7 +109,8 @@ router.post('/contests/:contestId/store', async (req, res) => {
 					storeTimeMs: storeTime,
 					totalTimeMs: totalTime
 				},
-				note: 'Only CONTESTANT participants are stored (VIRTUAL and PRACTICE filtered out)'
+				note: 'Only CONTESTANT participants are stored (VIRTUAL and PRACTICE filtered out)',
+				alreadyFetched: false
 			}
 		});
 	} catch (error) {
@@ -86,18 +128,23 @@ router.post('/contests/:contestId/store', async (req, res) => {
  * 
  * Query Parameters:
  * - includeGym: boolean (optional, default: false) - Include gym contests
+ * - force: boolean (optional, default: false) - Force re-fetch even if list was already stored
  * 
  * Body Parameters (alternative):
  * - includeGym: boolean (optional) - Can be passed in POST body instead of query
+ * - force: boolean (optional) - Can be passed in POST body instead of query
  * 
  * Fetches all contests from Codeforces API and stores in MongoDB.
+ * Contest list is always updated (not one-time write), but individual contest data
+ * follows one-time write rules when stored via /contests/:contestId/store
  */
 router.post('/contests/store-list', async (req, res) => {
 	try {
-		// Get includeGym from query or body (default: false)
+		// Get parameters from query or body
 		const includeGym = req.query.includeGym === 'true' || req.body.includeGym === true;
+		const force = req.query.force === 'true' || req.body.force === true;
 
-		logger.info(`API: Storing contest list (includeGym=${includeGym})`);
+		logger.info(`API: Storing contest list (includeGym=${includeGym}, force=${force})`);
 
 		const startTime = Date.now();
 
@@ -107,11 +154,18 @@ router.post('/contests/store-list', async (req, res) => {
 		const fetchTime = Date.now() - startTime;
 
 		// Store contest list in MongoDB
+		// Contest list is always stored/updated (not one-time write)
 		const storeStartTime = Date.now();
 		await codeforcesDataService.storeContestList(contests);
 		const storeTime = Date.now() - storeStartTime;
 
 		const totalTime = Date.now() - startTime;
+
+		// Get count of already fetched contests from the list
+		const contestIds = contests.map(c => c.id);
+		const fetchedCount = await models.FetchedContests.countDocuments({
+			contestId: { $in: contestIds }
+		});
 
 		logger.info(`API: Stored contest list - Fetch: ${fetchTime}ms, Store: ${storeTime}ms, Total: ${totalTime}ms`);
 
@@ -121,11 +175,14 @@ router.post('/contests/store-list', async (req, res) => {
 			data: {
 				contestsCount: contests.length,
 				includeGym,
+				fetchedContestsCount: fetchedCount,
+				unfetchedContestsCount: contests.length - fetchedCount,
 				performance: {
 					fetchTimeMs: fetchTime,
 					storeTimeMs: storeTime,
 					totalTimeMs: totalTime
-				}
+				},
+				note: 'Contest list is always updated. Individual contest data follows one-time write rules.'
 			}
 		});
 	} catch (error) {

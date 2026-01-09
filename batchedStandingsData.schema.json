@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BatchedStandingsData Schema",
+  "description": "Schema for batched standings data documents. Stores up to 1000 standings records per document, with each document representing a batch of standings for a specific contest.",
+  "type": "object",
+  "required": ["contestId", "batchIndex"],
+  "properties": {
+    "_id": {
+      "type": "string",
+      "description": "MongoDB ObjectId (automatically generated)"
+    },
+    "contestId": {
+      "type": "number",
+      "description": "Codeforces contest ID",
+      "minimum": 1
+    },
+    "batchIndex": {
+      "type": "number",
+      "description": "Index of this batch (0-based). Used to identify which batch this document represents for a given contest.",
+      "minimum": 0,
+      "default": 0
+    },
+    "standings": {
+      "type": "array",
+      "description": "Array of standings records (maximum 1000 items per document)",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "participantKey": {
+            "type": "string",
+            "description": "Composite key: 'contestId:handle' or 'contestId:teamId'"
+          },
+          "contestName": {
+            "type": "string",
+            "description": "Name of the contest (denormalized for performance)"
+          },
+          "contestPhase": {
+            "type": "string",
+            "description": "Contest phase (e.g., 'BEFORE', 'CODING', 'PENDING_SYSTEM_TEST', 'SYSTEM_TEST', 'FINISHED')"
+          },
+          "handle": {
+            "type": "string",
+            "description": "Primary handle for individual participants"
+          },
+          "handles": {
+            "type": "array",
+            "description": "Array of all handles (for team participants)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "teamId": {
+            "type": "number",
+            "description": "Team ID if this is a team participant"
+          },
+          "teamName": {
+            "type": "string",
+            "description": "Team name if this is a team participant"
+          },
+          "participantType": {
+            "type": "string",
+            "description": "Type of participant (e.g., 'CONTESTANT', 'VIRTUAL', 'PRACTICE', 'MANAGER', 'OUT_OF_COMPETITION')"
+          },
+          "ghost": {
+            "type": "boolean",
+            "description": "Whether this is a ghost participant"
+          },
+          "room": {
+            "type": "number",
+            "description": "Room number assigned to the participant"
+          },
+          "startTimeSeconds": {
+            "type": "number",
+            "description": "Start time of the participant's contest (Unix timestamp in seconds)"
+          },
+          "rank": {
+            "type": "number",
+            "description": "Rank of the participant in the contest",
+            "minimum": 1
+          },
+          "points": {
+            "type": "number",
+            "description": "Total points scored by the participant",
+            "minimum": 0
+          },
+          "penalty": {
+            "type": "number",
+            "description": "Total penalty time (in minutes)",
+            "minimum": 0
+          },
+          "successfulHackCount": {
+            "type": "number",
+            "description": "Number of successful hacks",
+            "minimum": 0
+          },
+          "unsuccessfulHackCount": {
+            "type": "number",
+            "description": "Number of unsuccessful hacks",
+            "minimum": 0
+          },
+          "lastSubmissionTimeSeconds": {
+            "type": "number",
+            "description": "Time of last submission (relative to contest start, in seconds)"
+          },
+          "problemResults": {
+            "type": "array",
+            "description": "Array of problem results for each problem in the contest",
+            "items": {
+              "type": "object",
+              "properties": {
+                "problemIndex": {
+                  "type": "string",
+                  "description": "Problem index (e.g., 'A', 'B', 'C')"
+                },
+                "points": {
+                  "type": "number",
+                  "description": "Points awarded for this problem",
+                  "minimum": 0
+                },
+                "penalty": {
+                  "type": "number",
+                  "description": "Penalty for this problem (in minutes)",
+                  "minimum": 0
+                },
+                "rejectedAttemptCount": {
+                  "type": "number",
+                  "description": "Number of rejected attempts before acceptance",
+                  "minimum": 0
+                },
+                "type": {
+                  "type": "string",
+                  "description": "Result type (e.g., 'PRELIMINARY', 'FINAL')"
+                },
+                "bestSubmissionTimeSeconds": {
+                  "type": ["number", "null"],
+                  "description": "Time of best submission (relative to contest start, in seconds), or null if not solved"
+                }
+              }
+            }
+          },
+          "isUnofficial": {
+            "type": "boolean",
+            "description": "Whether this participant is unofficial (virtual, out of competition, etc.)"
+          },
+          "lastFetchedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Timestamp when this standings record was last fetched/updated"
+          }
+        }
+      },
+      "default": []
+    },
+    "standingsCount": {
+      "type": "number",
+      "description": "Number of standings records in this batch (automatically calculated)",
+      "minimum": 0,
+      "default": 0
+    },
+    "lastFetchedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this batch was last fetched/updated",
+      "default": "Date.now()"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this document was created",
+      "default": "Date.now()"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this document was last updated",
+      "default": "Date.now()"
+    }
+  },
+  "additionalProperties": false
+}
