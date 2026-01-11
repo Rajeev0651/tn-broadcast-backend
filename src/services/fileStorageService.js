@@ -56,8 +56,34 @@ class FileStorageService {
 				this._dirEnsured = true;
 			}
 			const filePath = this.getFilePath(collectionName, contestId);
-			const data = await fs.readFile(filePath, 'utf-8');
-			return JSON.parse(data);
+			
+			try {
+				const data = await fs.readFile(filePath, 'utf-8');
+				// Check if file is empty or only whitespace
+				if (!data || !data.trim()) {
+					logger.warn(`File ${collectionName}_${contestId}.json is empty, returning empty array`);
+					return [];
+				}
+				return JSON.parse(data);
+			} catch (parseError) {
+				// Handle JSON parse errors (corrupted file)
+				if (parseError instanceof SyntaxError) {
+					logger.error(`Corrupted JSON file detected: ${collectionName}_${contestId}.json - ${parseError.message}`);
+					logger.warn(`Backing up corrupted file and returning empty array`);
+					
+					// Backup corrupted file
+					const backupPath = `${filePath}.corrupted.${Date.now()}`;
+					try {
+						await fs.rename(filePath, backupPath);
+						logger.info(`Corrupted file backed up to: ${backupPath}`);
+					} catch (backupError) {
+						logger.warn(`Failed to backup corrupted file: ${backupError.message}`);
+					}
+					
+					return [];
+				}
+				throw parseError;
+			}
 		} catch (error) {
 			if (error.code === 'ENOENT') {
 				// File doesn't exist, return empty array
@@ -69,7 +95,7 @@ class FileStorageService {
 	}
 
 	/**
-	 * Write data to file
+	 * Write data to file (atomic write: write to temp file, then rename)
 	 * @param {string} collectionName - Collection name
 	 * @param {number} contestId - Contest ID
 	 * @param {Array} data - Array of documents to write
@@ -82,8 +108,33 @@ class FileStorageService {
 				this._dirEnsured = true;
 			}
 			const filePath = this.getFilePath(collectionName, contestId);
+			const tempPath = `${filePath}.tmp.${Date.now()}`;
+			
+			// Validate data before writing
+			if (!Array.isArray(data)) {
+				throw new Error(`Expected array, got ${typeof data}`);
+			}
+			
+			// Write to temporary file first
 			const jsonData = JSON.stringify(data, null, 2);
-			await fs.writeFile(filePath, jsonData, 'utf-8');
+			await fs.writeFile(tempPath, jsonData, 'utf-8');
+			
+			// Verify the temp file can be parsed back (sanity check)
+			try {
+				const verifyData = await fs.readFile(tempPath, 'utf-8');
+				JSON.parse(verifyData);
+			} catch (verifyError) {
+				// Clean up temp file if verification fails
+				try {
+					await fs.unlink(tempPath);
+				} catch (cleanupError) {
+					// Ignore cleanup errors
+				}
+				throw new Error(`Failed to verify written JSON: ${verifyError.message}`);
+			}
+			
+			// Atomic rename (replace old file)
+			await fs.rename(tempPath, filePath);
 		} catch (error) {
 			logger.error(`Error writing file ${collectionName} for contest ${contestId}: ${error.message}`);
 			throw error;
@@ -232,6 +283,46 @@ class FileStorageService {
 	 */
 	async findOneAndUpdate(collectionName, contestId, filter, update, options = {}) {
 		return await this.updateOne(collectionName, contestId, filter, update, options);
+	}
+
+	/**
+	 * Replace all documents for a contest (efficient for bulk operations)
+	 * @param {string} collectionName - Collection name
+	 * @param {number} contestId - Contest ID
+	 * @param {Array} documents - Documents to replace with
+	 * @returns {Promise<void>}
+	 */
+	async replaceAll(collectionName, contestId, documents) {
+		try {
+			if (!this._dirEnsured) {
+				await this.ensureDirectoryExists();
+				this._dirEnsured = true;
+			}
+			
+			// Validate data
+			if (!Array.isArray(documents)) {
+				throw new Error(`Expected array, got ${typeof documents}`);
+			}
+			
+			// Generate IDs and timestamps for documents that don't have them
+			const now = new Date().toISOString();
+			const processedDocuments = documents.map(doc => {
+				if (!doc._id) {
+					doc._id = this.generateId();
+				}
+				if (!doc.createdAt) {
+					doc.createdAt = now;
+				}
+				doc.updatedAt = now;
+				return doc;
+			});
+			
+			// Write all documents at once (atomic)
+			await this.write(collectionName, contestId, processedDocuments);
+		} catch (error) {
+			logger.error(`Error replacing all documents in ${collectionName} for contest ${contestId}: ${error.message}`);
+			throw error;
+		}
 	}
 
 	/**

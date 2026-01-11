@@ -25,6 +25,9 @@ export default /* GraphQL */ gql`
 		
 		""" Get simulation state for a contest """
 		simulationState(contestId: Int!, currentTimestamp: Int!, speedMultiplier: Float): SimulationState!
+		
+		""" Get incremental standings at a specific timestamp """
+		incrementalStandings(contestId: Int!, timestampSeconds: Int!, rankFrom: Int, rankTo: Int, showUnofficial: Boolean, fileMode: Boolean): ContestStandings!
 	}
 
 	type Contest {

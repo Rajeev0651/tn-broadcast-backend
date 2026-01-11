@@ -1,6 +1,7 @@
 import { UserInputError } from 'apollo-server-errors';
 import { codeforcesDataService } from '../../services/codeforcesDataService.js';
 import { simulationService } from '../../services/simulationService.js';
+import { incrementalSimulationService } from '../../services/incrementalSimulationService.js';
 import { logger } from '../../helpers/logger.js';
 
 export default {
@@ -221,6 +222,48 @@ export default {
 					throw error;
 				}
 				throw new UserInputError(`Failed to get simulation state: ${error.message}`);
+			}
+		},
+
+		/**
+		 * Get incremental standings at a specific timestamp
+		 */
+		async incrementalStandings(parent, args) {
+			try {
+				const { contestId, timestampSeconds, rankFrom, rankTo, showUnofficial, fileMode } = args;
+				
+				if (!contestId || contestId <= 0) {
+					throw new UserInputError('Invalid contest ID');
+				}
+
+				if (timestampSeconds === undefined || timestampSeconds < 0) {
+					throw new UserInputError('timestampSeconds is required and must be >= 0');
+				}
+
+				if (rankFrom !== undefined && rankFrom < 1) {
+					throw new UserInputError('rankFrom must be >= 1');
+				}
+
+				if (rankTo !== undefined && rankFrom !== undefined && rankTo < rankFrom) {
+					throw new UserInputError('rankTo must be >= rankFrom');
+				}
+
+				const standings = await incrementalSimulationService.getStandingsAtTime(
+					contestId,
+					timestampSeconds,
+					rankFrom || 1,
+					rankTo || null,
+					showUnofficial || false,
+					fileMode || false
+				);
+
+				return standings;
+			} catch (error) {
+				logger.error(`Error getting incremental standings for contest ${args.contestId}: ${error.message}`);
+				if (error instanceof UserInputError) {
+					throw error;
+				}
+				throw new UserInputError(`Failed to get incremental standings: ${error.message}`);
 			}
 		}
 	}
